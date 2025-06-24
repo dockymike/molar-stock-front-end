@@ -1,4 +1,3 @@
-// 📁 src/components/DonationBar.jsx
 import { useState, useEffect } from 'react'
 import {
   Box,
@@ -13,9 +12,8 @@ import {
 import {
   createStripeCheckoutSession,
   createPortalSession,
-} from '../services/StripeService' // ✅ Import both services
+} from '../services/StripeService'
 
-// ✅ Stripe Price IDs
 const priceMap = {
   6: 'price_1RdKrMQr2Jpjfm63VOQJdMvy',
   12: 'price_1RdKrkQr2Jpjfm63tNzVXSTZ',
@@ -28,13 +26,22 @@ const mappedValues = [6, 12, 29, 59, 99]
 const sliderSteps = [0, 25, 50, 75, 100]
 
 export default function DonationBar() {
-  const [sliderValue, setSliderValue] = useState(50) // maps to $29 (default)
+  const [sliderValue, setSliderValue] = useState(50)
   const [isPaidUser, setIsPaidUser] = useState(false)
   const theme = useTheme()
 
   useEffect(() => {
-    const user = JSON.parse(localStorage.getItem('user'))
-    setIsPaidUser(user?.is_paid === true)
+    const checkUser = () => {
+      const user = JSON.parse(localStorage.getItem('user'))
+      const isPaid = user?.is_paid === true
+      setIsPaidUser(isPaid)
+      console.log('🔁 DonationBar - User is_paid:', isPaid)
+    }
+
+    checkUser()
+    const interval = setInterval(checkUser, 1000) // watch for localStorage changes
+
+    return () => clearInterval(interval)
   }, [])
 
   const handleSliderChange = (_, newSliderValue) => {
@@ -118,10 +125,9 @@ export default function DonationBar() {
             gap={4}
             flexWrap="wrap"
           >
-            {/* LEFT COLUMN */}
             <Box flex={1} minWidth={260}>
               <Typography variant="body2" fontWeight={500}>
-                Yes, it's free. However, continued development and support of this product gets really expensive. We want to add so many more features to help you. Help us continue to support you by considering a donation subscription of your choice. What's it worth to you?
+                Yes, it's free. However, continued development and support of this product gets really expensive...
               </Typography>
 
               <Box mt={1}>
@@ -166,7 +172,6 @@ export default function DonationBar() {
               />
             </Box>
 
-            {/* RIGHT COLUMN */}
             <Box
               display="flex"
               flexDirection="column"

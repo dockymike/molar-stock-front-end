@@ -37,17 +37,30 @@ export default function DashboardPage() {
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
-    if (!user) navigate('/')
+    if (!user) {
+      console.warn('🚫 No user found in localStorage. Redirecting to login.')
+      navigate('/')
+      return
+    }
+
+    console.log('📦 Loaded user from localStorage:', user)
 
     const params = new URLSearchParams(location.search)
     const isSuccess = params.get('checkout') === 'success'
 
     if (isSuccess && user?.id) {
+      console.log('✅ Checkout success detected. Refetching user from DB...')
       const token = localStorage.getItem('token')
       fetchUserById(user.id, token).then((updatedUser) => {
         if (updatedUser) {
+          console.log('🆕 Updated user fetched from DB:', updatedUser)
           setUser(updatedUser)
           localStorage.setItem('user', JSON.stringify(updatedUser))
+
+          // Optional: force refresh to update UI state like DonationBar
+          window.location.href = '/dashboard-page'
+        } else {
+          console.error('❌ Failed to fetch updated user after checkout.')
         }
       })
     }

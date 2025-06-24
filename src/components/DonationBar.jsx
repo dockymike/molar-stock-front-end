@@ -10,7 +10,10 @@ import {
   Container,
   Tooltip,
 } from '@mui/material'
-import { createStripeCheckoutSession } from '../services/StripeService' // ✅ Import service
+import {
+  createStripeCheckoutSession,
+  createPortalSession,
+} from '../services/StripeService' // ✅ Import both services
 
 // ✅ Stripe Price IDs
 const priceMap = {
@@ -64,6 +67,20 @@ export default function DonationBar() {
     }
   }
 
+  const handleManageSubscription = async () => {
+    try {
+      const url = await createPortalSession()
+      if (url) {
+        window.location.href = url
+      } else {
+        alert('Could not load Stripe portal. Please try again.')
+      }
+    } catch (err) {
+      console.error('Portal Error:', err)
+      alert('Could not load Stripe portal. Please try again.')
+    }
+  }
+
   return (
     <Paper
       elevation={0}
@@ -76,18 +93,22 @@ export default function DonationBar() {
     >
       <Container maxWidth="lg">
         {isPaidUser ? (
-          <Box display="flex" justifyContent="space-between" alignItems="center">
+          <Box
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+            flexWrap="wrap"
+          >
             <Typography variant="body2" fontWeight={500}>
-              🎉 Thank you for supporting us!{' '}
-              <a
-                href="https://billing.stripe.com/p/login/test_xxx" // 🔁 Replace with your actual customer portal link
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ textDecoration: 'underline', color: '#1976d2' }}
-              >
-                Click here to manage your subscription.
-              </a>
+              🎉 Thank you for supporting us!
             </Typography>
+            <Button
+              variant="outlined"
+              size="small"
+              onClick={handleManageSubscription}
+            >
+              Manage Subscription
+            </Button>
           </Box>
         ) : (
           <Box

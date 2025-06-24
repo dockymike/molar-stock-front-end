@@ -12,7 +12,6 @@ import {
 } from '@mui/material'
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline'
 
-// Components
 import TopBar from '../components/TopBar'
 import DonationBar from '../components/DonationBar'
 import Operatories from '../components/Operatories'
@@ -46,19 +45,17 @@ export default function DashboardPage() {
     console.log('📦 Loaded user from localStorage:', user)
 
     const params = new URLSearchParams(location.search)
-    const isSuccess = params.get('checkout') === 'success'
+    const checkoutStatus = params.get('checkout') // can be 'success' or 'cancel'
 
-    if (isSuccess && user?.id) {
-      console.log('✅ Checkout success detected. Refetching user from DB...')
+    if ((checkoutStatus === 'success' || checkoutStatus === 'cancel') && user?.id) {
+      console.log(`🔁 Checkout ${checkoutStatus} detected. Refetching user from DB...`)
       const token = localStorage.getItem('token')
       fetchUserById(user.id, token).then((updatedUser) => {
         if (updatedUser) {
           console.log('🆕 Updated user fetched from DB:', updatedUser)
           setUser(updatedUser)
           localStorage.setItem('user', JSON.stringify(updatedUser))
-
-          // Optional: force refresh to update UI state like DonationBar
-          window.location.href = '/dashboard-page'
+          window.location.href = '/dashboard-page' // clear ?checkout param
         } else {
           console.error('❌ Failed to fetch updated user after checkout.')
         }
@@ -81,8 +78,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Operatories',
-      description:
-        'Track which supplies and their quantities are assigned to each operatory. Set low supply threshold alerts for individual supplies in the operatory.',
+      description: 'Track which supplies and their quantities are assigned to each operatory. Set low supply threshold alerts for individual supplies in the operatory.',
     },
     {
       label: 'Categories',
@@ -90,8 +86,7 @@ export default function DashboardPage() {
     },
     {
       label: 'Global Supplies',
-      description:
-        'View and manage total inventory of all supplies available in your practice. Set price per units to track expenses and set low supply threshold alerts on a global level.',
+      description: 'View and manage total inventory of all supplies available in your practice. Set price per units to track expenses and set low supply threshold alerts on a global level.',
     },
     {
       label: 'Send Supplies to Operatory',
@@ -109,36 +104,15 @@ export default function DashboardPage() {
 
   return (
     <>
-      {/* 🔷 Header */}
-      <TopBar
-        practiceName={user?.practice_name || 'Dental Inventory'}
-        onLogout={handleLogout}
-      />
-
-      {/* 💸 Donation Banner */}
+      <TopBar practiceName={user?.practice_name || 'Dental Inventory'} onLogout={handleLogout} />
       <DonationBar />
 
       {/* ✅ Action Buttons & Low Stock Alerts */}
-      <Box
-        display="flex"
-        justifyContent="space-between"
-        alignItems="flex-start"
-        px={4}
-        py={2}
-        sx={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd' }}
-      >
+      <Box display="flex" justifyContent="space-between" alignItems="flex-start" px={4} py={2} sx={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
         {/* ➕ Action Buttons */}
         <Box display="flex" gap={4}>
-          {/* Consume */}
           <Box display="flex" flexDirection="column" alignItems="center">
-            <Tooltip
-              title={
-                <Typography fontSize={14}>
-                  Log which supplies were used in each operatory and update inventory accordingly.
-                </Typography>
-              }
-              arrow
-            >
+            <Tooltip title={<Typography fontSize={14}>Log which supplies were used in each operatory and update inventory accordingly.</Typography>} arrow>
               <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
                 <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
                 <Typography variant="caption">Consume Supplies</Typography>
@@ -149,16 +123,8 @@ export default function DashboardPage() {
             </Button>
           </Box>
 
-          {/* Check-In */}
           <Box display="flex" flexDirection="column" alignItems="center">
-            <Tooltip
-              title={
-                <Typography fontSize={14}>
-                  Receive new inventory or restock existing items into the global inventory.
-                </Typography>
-              }
-              arrow
-            >
+            <Tooltip title={<Typography fontSize={14}>Receive new inventory or restock existing items into the global inventory.</Typography>} arrow>
               <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
                 <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
                 <Typography variant="caption">Check-In Supplies</Typography>
@@ -172,14 +138,7 @@ export default function DashboardPage() {
 
         {/* 🔔 Low Stock Alerts */}
         <Box display="flex" flexDirection="column" alignItems="center">
-          <Tooltip
-            title={
-              <Typography fontSize={14}>
-                View which supplies are below their assigned low stock threshold and need to be restocked.
-              </Typography>
-            }
-            arrow
-          >
+          <Tooltip title={<Typography fontSize={14}>View which supplies are below their assigned low stock threshold and need to be restocked.</Typography>} arrow>
             <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
               <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
               <Typography variant="caption"></Typography>
@@ -199,7 +158,6 @@ export default function DashboardPage() {
             Use the dashboard to manage your operatories, supplies, categories, suppliers, and usage logs.
           </Typography>
 
-          {/* 🔖 Tabs */}
           <Tabs value={tabIndex} onChange={handleTabChange} sx={{ mt: 2, mb: 2 }}>
             {tabLabels.map((tab, index) => (
               <Tab
@@ -207,11 +165,7 @@ export default function DashboardPage() {
                 label={
                   <Box display="flex" alignItems="center" gap={0.5}>
                     {tab.label}
-                    <Tooltip
-                      title={<Typography fontSize={14}>{tab.description}</Typography>}
-                      arrow
-                      placement="top"
-                    >
+                    <Tooltip title={<Typography fontSize={14}>{tab.description}</Typography>} arrow placement="top">
                       <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
                     </Tooltip>
                   </Box>
@@ -220,7 +174,6 @@ export default function DashboardPage() {
             ))}
           </Tabs>
 
-          {/* 🧩 Tab Content */}
           {tabIndex === 0 && <Suppliers />}
           {tabIndex === 1 && <Operatories onSupplyChange={handleSupplyChange} />}
           {tabIndex === 2 && <Categories />}
@@ -231,17 +184,8 @@ export default function DashboardPage() {
         </Paper>
       </Box>
 
-      {/* 📦 Modals */}
-      <ConsumeModal
-        open={isConsumeOpen}
-        onClose={() => setIsConsumeOpen(false)}
-        onSupplyChange={handleSupplyChange}
-      />
-      <CheckInModal
-        open={isCheckInOpen}
-        onClose={() => setIsCheckInOpen(false)}
-        onSupplyChange={handleSupplyChange}
-      />
+      <ConsumeModal open={isConsumeOpen} onClose={() => setIsConsumeOpen(false)} onSupplyChange={handleSupplyChange} />
+      <CheckInModal open={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} onSupplyChange={handleSupplyChange} />
     </>
   )
 }

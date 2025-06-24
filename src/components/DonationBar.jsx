@@ -127,7 +127,7 @@ export default function DonationBar() {
           >
             <Box flex={1} minWidth={260}>
               <Typography variant="body2" fontWeight={500}>
-                Yes, it's free. However, continued development and support of this product gets really expensive...
+                Yes, it's free. You don't have to pay and still get access to every feature. However, continued development and support of this product gets really expensive and we would appreciate a donation subscription if possible to help us make it better for you!. You can choose to not pay anything and still use all features, or we have $6, $12, $29, $59, and $99 options - just scroll the blue bar!
               </Typography>
 
               <Box mt={1}>

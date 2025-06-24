@@ -1,5 +1,5 @@
 // 📁 src/components/DonationBar.jsx
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -26,7 +26,13 @@ const sliderSteps = [0, 25, 50, 75, 100]
 
 export default function DonationBar() {
   const [sliderValue, setSliderValue] = useState(50) // maps to $29 (default)
+  const [isPaidUser, setIsPaidUser] = useState(false)
   const theme = useTheme()
+
+  useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user'))
+    setIsPaidUser(user?.is_paid === true)
+  }, [])
 
   const handleSliderChange = (_, newSliderValue) => {
     setSliderValue(newSliderValue)
@@ -69,78 +75,94 @@ export default function DonationBar() {
       }}
     >
       <Container maxWidth="lg">
-        <Box
-          display="flex"
-          justifyContent="space-between"
-          alignItems="center"
-          gap={4}
-          flexWrap="wrap"
-        >
-          {/* LEFT COLUMN */}
-          <Box flex={1} minWidth={260}>
+        {isPaidUser ? (
+          <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="body2" fontWeight={500}>
-              Yes, it's free. However, continued development and support of this product gets really expensive. We want to add so many more features to help you. Help us continue to support you by considering a donation subscription of your choice. What's it worth to you?
-            </Typography>
-
-            <Box mt={1}>
-              <Tooltip
-                title={
-                  <Box>
-                    <Typography variant="body2">- Automated invoice requests from your suppliers</Typography>
-                    <Typography variant="body2">- Order quantity recommendations based on supply usage</Typography>
-                    <Typography variant="body2">- Discounted rates from suppliers</Typography>
-                    <Typography variant="body2">- Intuitive dashboard for inventory analytics</Typography>
-                  </Box>
-                }
-                arrow
+              🎉 Thank you for supporting us!{' '}
+              <a
+                href="https://billing.stripe.com/p/login/test_xxx" // 🔁 Replace with your actual customer portal link
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: 'underline', color: '#1976d2' }}
               >
-                <Typography
-                  variant="caption"
-                  sx={{ textDecoration: 'underline', color: 'primary.main', cursor: 'pointer' }}
-                >
-                  Future Features
-                </Typography>
-              </Tooltip>
-            </Box>
-
-            <Slider
-              value={sliderValue}
-              onChange={handleSliderChange}
-              step={null}
-              marks={sliderSteps.map((step, i) => ({
-                value: step,
-                label: `$${mappedValues[i]}`,
-              }))}
-              min={0}
-              max={100}
-              sx={{
-                mt: 2,
-                width: '100%',
-                '& .MuiSlider-markLabel': {
-                  fontSize: '0.75rem',
-                  color: theme.palette.text.secondary,
-                },
-              }}
-            />
+                Click here to manage your subscription.
+              </a>
+            </Typography>
           </Box>
-
-          {/* RIGHT COLUMN */}
+        ) : (
           <Box
             display="flex"
-            flexDirection="column"
-            alignItems="flex-end"
-            justifyContent="center"
-            gap={1}
-            minWidth={120}
+            justifyContent="space-between"
+            alignItems="center"
+            gap={4}
+            flexWrap="wrap"
           >
-            <Typography variant="subtitle2" fontWeight="bold">
-              ${donationAmount}/month
-            </Typography>
-            <Button variant="contained" size="small" onClick={handleSubscribe}>
-              Subscribe
-            </Button>
+            {/* LEFT COLUMN */}
+            <Box flex={1} minWidth={260}>
+              <Typography variant="body2" fontWeight={500}>
+                Yes, it's free. However, continued development and support of this product gets really expensive. We want to add so many more features to help you. Help us continue to support you by considering a donation subscription of your choice. What's it worth to you?
+              </Typography>
+
+              <Box mt={1}>
+                <Tooltip
+                  title={
+                    <Box>
+                      <Typography variant="body2">- Automated invoice requests from your suppliers</Typography>
+                      <Typography variant="body2">- Order quantity recommendations based on supply usage</Typography>
+                      <Typography variant="body2">- Discounted rates from suppliers</Typography>
+                      <Typography variant="body2">- Intuitive dashboard for inventory analytics</Typography>
+                    </Box>
+                  }
+                  arrow
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{ textDecoration: 'underline', color: 'primary.main', cursor: 'pointer' }}
+                  >
+                    Future Features
+                  </Typography>
+                </Tooltip>
+              </Box>
+
+              <Slider
+                value={sliderValue}
+                onChange={handleSliderChange}
+                step={null}
+                marks={sliderSteps.map((step, i) => ({
+                  value: step,
+                  label: `$${mappedValues[i]}`,
+                }))}
+                min={0}
+                max={100}
+                sx={{
+                  mt: 2,
+                  width: '100%',
+                  '& .MuiSlider-markLabel': {
+                    fontSize: '0.75rem',
+                    color: theme.palette.text.secondary,
+                  },
+                }}
+              />
+            </Box>
+
+            {/* RIGHT COLUMN */}
+            <Box
+              display="flex"
+              flexDirection="column"
+              alignItems="flex-end"
+              justifyContent="center"
+              gap={1}
+              minWidth={120}
+            >
+              <Typography variant="subtitle2" fontWeight="bold">
+                ${donationAmount}/month
+              </Typography>
+              <Button variant="contained" size="small" onClick={handleSubscribe}>
+                Subscribe
+              </Button>
+            </Box>
           </Box>
-        </Box>
+        )}
       </Container>
     </Paper>
   )

@@ -15,11 +15,11 @@ import {
 } from '../services/StripeService'
 
 const priceMap = {
-  6: 'price_1RdKrMQr2Jpjfm63VOQJdMvy',
-  12: 'price_1RdKrkQr2Jpjfm63tNzVXSTZ',
-  29: 'price_1RdKs0Qr2Jpjfm63hH2UDB5v',
-  59: 'price_1RdKt3Qr2Jpjfm63vz9dwImw',
-  99: 'price_1RdKtIQr2Jpjfm63NfFJOGig',
+  6: 'price_1RdNThJWeUW9m1dQSDvz7CvF',
+  12: 'price_1RdNTvJWeUW9m1dQFGYOXcsl',
+  29: 'price_1RdNUBJWeUW9m1dQ9ZswOwKN',
+  59: 'price_1RdNUSJWeUW9m1dQJl1AMmq1',
+  99: 'price_1RdNUkJWeUW9m1dQxKakgKKq',
 }
 
 const mappedValues = [6, 12, 29, 59, 99]

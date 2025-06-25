@@ -1,3 +1,4 @@
+// ✅ Fixed Operatories.jsx with accurate assigned quantity from backend
 import { useEffect, useState } from 'react'
 import {
   Box,
@@ -36,11 +37,14 @@ import {
   fetchAssignedQuantity,
 } from '../services/OpSuppliesService'
 
+import { fetchSupplies } from '../services/SuppliesService'
 import { updateOperatoryLowStockThreshold } from '../services/LowStockService'
 
-export default function Operatories({ onSupplyChange }) {
+export default function Operatories({ refreshKey }) {
   const [ops, setOps] = useState([])
   const [opSupplies, setOpSupplies] = useState({})
+  const [globalSupplies, setGlobalSupplies] = useState([])
+  const [assignedTotals, setAssignedTotals] = useState({})
   const [expandedId, setExpandedId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [name, setName] = useState('')
@@ -52,22 +56,44 @@ export default function Operatories({ onSupplyChange }) {
   const user = JSON.parse(localStorage.getItem('user'))
   const token = localStorage.getItem('token')
 
-  useEffect(() => {
-    if (!user?.id) return
-    fetchOperatories(user.id)
-      .then(async (data) => {
-        setOps(data)
-        const suppliesMap = {}
-        for (const op of data) {
-          const supplies = await fetchOpSupplies(op.id)
-          suppliesMap[op.id] = supplies
+  const loadOperatories = async () => {
+    setLoading(true)
+    try {
+      const data = await fetchOperatories(user.id)
+      setOps(data)
+
+      const suppliesMap = {}
+      const assignedMap = {}
+
+      for (const op of data) {
+        const supplies = await fetchOpSupplies(op.id)
+        suppliesMap[op.id] = supplies
+
+        for (const s of supplies) {
+          if (!assignedMap[s.supply_id]) {
+            const assigned = await fetchAssignedQuantity(s.supply_id)
+            assignedMap[s.supply_id] = assigned
+          }
         }
-        setOpSupplies(suppliesMap)
-        if (data.length > 0) setExpandedId(data[0].id)
-      })
-      .catch(console.error)
-      .finally(() => setLoading(false))
-  }, [user?.id])
+      }
+
+      setOpSupplies(suppliesMap)
+      setAssignedTotals(assignedMap)
+
+      const globalList = await fetchSupplies(user.id, token)
+      setGlobalSupplies(globalList)
+
+      if (data.length > 0) setExpandedId(data[0].id)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (user?.id) loadOperatories()
+  }, [user?.id, refreshKey])
 
   const handleAdd = () => {
     if (!name.trim()) return
@@ -113,8 +139,8 @@ export default function Operatories({ onSupplyChange }) {
       return
     }
 
-    const totalAssigned = await fetchAssignedQuantity(supply_id)
-    const globalQty = opSupplies[opId]?.find((s) => s.id === id)?.global_quantity || 0
+    const totalAssigned = assignedTotals[supply_id] || 0
+    const globalQty = globalSupplies.find((g) => g.id === supply_id)?.quantity || 0
     const currentOpQty = opSupplies[opId]?.find((s) => s.id === id)?.quantity || 0
     const available = globalQty - (totalAssigned - currentOpQty)
 
@@ -132,37 +158,27 @@ export default function Operatories({ onSupplyChange }) {
     setOpSupplies((prev) => ({ ...prev, [opId]: updatedList }))
     setEditingSupply({})
     setToast({ open: true, message: 'Supply updated successfully' })
-    if (onSupplyChange) onSupplyChange()
   }
 
   const handleSupplyDelete = async (id, opId) => {
-    if (!window.confirm('Delete this supply from operatory?')) return
+    const confirm = window.confirm(
+      '🗑️ Deleting this supply from this operatory will remove all quantities associated with this supply from this operatory.'
+    )
+    if (!confirm) return
+
     await deleteOpSupply(id)
     const updatedList = await fetchOpSupplies(opId)
     setOpSupplies((prev) => ({ ...prev, [opId]: updatedList }))
+    setToast({ open: true, message: 'Supply removed from operatory and returned to unassigned stock.' })
   }
 
   const toggleExpanded = (id) => {
     setExpandedId((prev) => (prev === id ? null : id))
   }
 
-  const computeTotalAssignedPerSupply = () => {
-    const totals = {}
-    for (const opId in opSupplies) {
-      for (const supply of opSupplies[opId]) {
-        if (!totals[supply.supply_id]) totals[supply.supply_id] = 0
-        totals[supply.supply_id] += supply.quantity || 0
-      }
-    }
-    return totals
-  }
-
-  const totalAssignedMap = computeTotalAssignedPerSupply()
-
   return (
     <Box>
       <Typography variant="h6" gutterBottom>Operatories</Typography>
-
       <Box display="flex" gap={2} mb={2}>
         <TextField label="Operatory Name" value={name} onChange={(e) => setName(e.target.value)} />
         <Button variant="contained" onClick={handleAdd}>Add</Button>
@@ -208,17 +224,16 @@ export default function Operatories({ onSupplyChange }) {
 
               <Collapse in={expandedId === op.id} timeout="auto" unmountOnExit>
                 <Divider sx={{ my: 1 }} />
-                <Typography variant="subtitle2" color="text.secondary" ml={2} mb={1}>
-                  Assigned Supplies
-                </Typography>
+                <Typography variant="subtitle2" color="text.secondary" ml={2} mb={1}>Assigned Supplies</Typography>
 
                 {opSupplies[op.id]?.length > 0 ? (
                   <Box ml={2} mr={2}>
                     {opSupplies[op.id].map((supply) => {
                       const key = `${op.id}-${supply.id}`
                       const showWarning = supply.quantity <= (supply.low_stock_threshold || 0)
-                      const totalAssigned = totalAssignedMap[supply.supply_id] || 0
-                      const unassigned = Math.max(0, (supply.global_quantity || 0) - totalAssigned)
+                      const unassigned = globalSupplies.find((g) => g.id === supply.supply_id)?.quantity || 0
+
+
                       return (
                         <Box key={key} display="flex" alignItems="center" gap={1} mb={1} flexWrap="wrap">
                           {editingSupply.id === supply.id && editingSupply.opId === op.id ? (
@@ -246,17 +261,15 @@ export default function Operatories({ onSupplyChange }) {
                             </>
                           ) : (
                             <>
-                              <Typography fontWeight="bold">
-                                {supply.supply_name}
-                              </Typography>
-                              <Tooltip title={<Typography sx={{ fontSize: '14px' }}>This is the quantity you have of this supply in this operatory.</Typography>} arrow>
+                              <Typography fontWeight="bold">{supply.supply_name}</Typography>
+                              <Tooltip title="Quantity in this operatory" arrow>
                                 <Chip label={`Qty: ${supply.quantity}`} size="small" />
                               </Tooltip>
-                              <Tooltip title={<Typography sx={{ fontSize: '14px' }}>This is the amount of available global stock that has not been allocated to an operatory yet. You have this amount available to allocate towards this or any other operatory.</Typography>} arrow>
+                              <Tooltip title="Unassigned global quantity" arrow>
                                 <Chip label={`Unassigned: ${unassigned}`} size="small" />
                               </Tooltip>
                               <Chip label={`Unit: ${supply.unit}`} size="small" />
-                              <Tooltip title={<Typography sx={{ fontSize: '14px' }}>When this supply at this operatory reaches at or below this threshold, you will get a low stock alert.</Typography>} arrow>
+                              <Tooltip title="Low stock threshold" arrow>
                                 <Chip
                                   label={`Low Stock: ${supply.low_stock_threshold || 0}`}
                                   variant="outlined"

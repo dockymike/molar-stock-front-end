@@ -33,7 +33,7 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
   const [quantityToAdd, setQuantityToAdd] = useState('')
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState({ open: false, message: '' })
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [categories, setCategories] = useState([])
@@ -50,13 +50,9 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
   useEffect(() => {
     if (!open || !user?.id || !token) return
 
-    console.log('📦 Fetching supplies, categories, suppliers...')
     setLoading(true)
     fetchSupplies(user.id, token)
-      .then((data) => {
-        setSupplies(data)
-        console.log('✅ Supplies loaded:', data)
-      })
+      .then(setSupplies)
       .finally(() => setLoading(false))
 
     fetchCategories(user.id).then(setCategories)
@@ -64,15 +60,18 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
   }, [open])
 
   const handleSelectSupply = (supply) => {
-    console.log('➡️ Selected supply:', supply)
     setSelectedSupply(supply)
     setQuantityToAdd('')
   }
 
   const handleCheckIn = async () => {
     if (!selectedSupply || !quantityToAdd || isNaN(quantityToAdd)) return
-    setSaving(true)
+    if (parseInt(quantityToAdd) <= 0) {
+      setToast({ open: true, message: 'Quantity must be greater than 0', severity: 'error' })
+      return
+    }
 
+    setSaving(true)
     const newQuantity = selectedSupply.quantity + parseInt(quantityToAdd)
     try {
       await updateSupply(selectedSupply.id, {
@@ -84,7 +83,7 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
       )
       setSelectedSupply(null)
       setQuantityToAdd('')
-      setToast({ open: true, message: 'Supply checked in successfully' })
+      setToast({ open: true, message: 'Supply checked in successfully', severity: 'success' })
       if (onSupplyChange) onSupplyChange()
     } catch (err) {
       console.error('❌ Check-in failed', err)
@@ -118,7 +117,7 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
       }
 
       setSupplies((prev) => [newSupply, ...prev])
-      setToast({ open: true, message: 'Supply added and checked in!' })
+      setToast({ open: true, message: 'Supply added and checked in!', severity: 'success' })
       if (onSupplyChange) onSupplyChange()
 
       setNewName('')
@@ -173,7 +172,7 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
                   ))}
                 </Select>
               </FormControl>
-              <TextField label="Global Quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+              <TextField label="Quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
               <TextField label="Low Stock Threshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} />
               <TextField label="Cost per Unit" type="number" value={costPerUnit} onChange={(e) => setCostPerUnit(e.target.value)} />
               <FormControl fullWidth>
@@ -221,7 +220,7 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
                     <Box>
                       <Typography variant="subtitle1">{supply.name}</Typography>
                       <Typography variant="body2" color="textSecondary">
-                        {supply.quantity} {supply.unit || ''} in stock
+                        {supply.quantity} {supply.unit || ''} unassigned
                       </Typography>
                     </Box>
                     <Button variant="outlined" onClick={() => handleSelectSupply(supply)}>
@@ -275,12 +274,12 @@ export default function CheckInModal({ open, onClose, onSupplyChange }) {
       <Snackbar
         open={toast.open}
         autoHideDuration={3000}
-        onClose={() => setToast({ open: false, message: '' })}
+        onClose={() => setToast({ ...toast, open: false })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
         <Alert
-          onClose={() => setToast({ open: false, message: '' })}
-          severity="success"
+          onClose={() => setToast({ ...toast, open: false })}
+          severity={toast.severity}
           sx={{ width: '100%' }}
         >
           {toast.message}

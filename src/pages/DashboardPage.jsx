@@ -26,6 +26,10 @@ import CheckInModal from '../components/CheckInModal'
 import LowStockThreshold from '../components/LowStockThreshold'
 import { fetchUserById } from '../services/UserService'
 
+// ✅ NEW: Barcode modals
+import ScanCheckInModal from '../scanning/components/ScanCheckInModal'
+import ScanConsumeModal from '../scanning/components/ScanConsumeModal'
+
 export default function DashboardPage() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -35,6 +39,9 @@ export default function DashboardPage() {
   const [isCheckInOpen, setIsCheckInOpen] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
 
+  const [isScanConsumeOpen, setIsScanConsumeOpen] = useState(false)
+  const [isScanCheckInOpen, setIsScanCheckInOpen] = useState(false)
+
   useEffect(() => {
     if (!user) {
       console.warn('🚫 No user found in localStorage. Redirecting to login.')
@@ -42,22 +49,15 @@ export default function DashboardPage() {
       return
     }
 
-    console.log('📦 Loaded user from localStorage:', user)
-
     const params = new URLSearchParams(location.search)
-    const checkoutStatus = params.get('checkout') // can be 'success' or 'cancel'
-
+    const checkoutStatus = params.get('checkout')
     if ((checkoutStatus === 'success' || checkoutStatus === 'cancel') && user?.id) {
-      console.log(`🔁 Checkout ${checkoutStatus} detected. Refetching user from DB...`)
       const token = localStorage.getItem('token')
       fetchUserById(user.id, token).then((updatedUser) => {
         if (updatedUser) {
-          console.log('🆕 Updated user fetched from DB:', updatedUser)
           setUser(updatedUser)
           localStorage.setItem('user', JSON.stringify(updatedUser))
-          window.location.href = '/dashboard-page' // clear ?checkout param
-        } else {
-          console.error('❌ Failed to fetch updated user after checkout.')
+          window.location.href = '/dashboard-page'
         }
       })
     }
@@ -72,34 +72,13 @@ export default function DashboardPage() {
   const handleSupplyChange = () => setRefreshKey((prev) => prev + 1)
 
   const tabLabels = [
-    {
-      label: 'Suppliers',
-      description: 'Manage supplier contact info for order tracking and reordering.',
-    },
-    {
-      label: 'Operatories',
-      description: 'Track which supplies and their quantities are assigned to each operatory. Set low supply threshold alerts for individual supplies in the operatory.',
-    },
-    {
-      label: 'Categories',
-      description: 'Organize your supplies into categories like gloves, anesthetic, etc.',
-    },
-    {
-      label: 'Global Supplies',
-      description: 'View and manage total inventory of all supplies available in your practice. Set price per units to track expenses and set low supply threshold alerts on a global level.',
-    },
-    {
-      label: 'Send Supplies to Operatory',
-      description: 'Distribute items from global inventory into individual operatories.',
-    },
-    {
-      label: 'Procedures',
-      description: 'Define procedures and assign default supply quantities for each for quick consumption.',
-    },
-    {
-      label: 'Usage Logs',
-      description: 'Track when and where supplies were used across your office and cost of supplies per procedure.',
-    },
+    { label: 'Suppliers', description: 'Manage supplier contact info for order tracking and reordering.' },
+    { label: 'Operatories', description: 'Track which supplies and their quantities are assigned to each operatory. Set low supply threshold alerts for individual supplies in the operatory.' },
+    { label: 'Categories', description: 'Organize your supplies into categories like gloves, anesthetic, etc.' },
+    { label: 'Unassigned Supplies', description: 'View and manage total inventory of all supplies available in your practice. Set price per units to track expenses and set low supply threshold alerts on your Unassigned supplies.' },
+    { label: 'Send Supplies to Operatory', description: 'Distribute items from global inventory into individual operatories.' },
+    { label: 'Procedures', description: 'Define procedures and assign default supply quantities for each for quick consumption.' },
+    { label: 'Usage Logs', description: 'Track when and where supplies were used across your office and cost of supplies per procedure.' },
   ]
 
   return (
@@ -107,10 +86,10 @@ export default function DashboardPage() {
       <TopBar practiceName={user?.practice_name || 'Dental Inventory'} onLogout={handleLogout} />
       <DonationBar />
 
-      {/* ✅ Action Buttons & Low Stock Alerts */}
       <Box display="flex" justifyContent="space-between" alignItems="flex-start" px={4} py={2} sx={{ backgroundColor: '#f5f5f5', borderBottom: '1px solid #ddd' }}>
         {/* ➕ Action Buttons */}
-        <Box display="flex" gap={4}>
+        <Box display="flex" gap={4} flexWrap="wrap">
+          {/* Manual Consume */}
           <Box display="flex" flexDirection="column" alignItems="center">
             <Tooltip title={<Typography fontSize={14}>Log which supplies were used in each operatory and update inventory accordingly.</Typography>} arrow>
               <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
@@ -123,6 +102,7 @@ export default function DashboardPage() {
             </Button>
           </Box>
 
+          {/* Manual Check-in */}
           <Box display="flex" flexDirection="column" alignItems="center">
             <Tooltip title={<Typography fontSize={14}>Receive new inventory or restock existing items into the global inventory.</Typography>} arrow>
               <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
@@ -134,6 +114,32 @@ export default function DashboardPage() {
               + CHECK-IN SUPPLIES
             </Button>
           </Box>
+
+          {/* ✅ Scan to Consume */}
+          <Box display="flex" flexDirection="column" alignItems="center">
+            <Tooltip title={<Typography fontSize={14}>Use a barcode scanner to quickly consume supplies from an operatory.</Typography>} arrow>
+              <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
+                <Typography variant="caption">Scan to Consume</Typography>
+              </Box>
+            </Tooltip>
+            <Button variant="outlined" color="primary" onClick={() => setIsScanConsumeOpen(true)}>
+              + SCAN TO CONSUME
+            </Button>
+          </Box>
+
+          {/* ✅ Scan to Check-In */}
+          <Box display="flex" flexDirection="column" alignItems="center">
+            <Tooltip title={<Typography fontSize={14}>Scan barcodes to check in supplies directly to operatories.</Typography>} arrow>
+              <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
+                <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
+                <Typography variant="caption">Scan to Check-In</Typography>
+              </Box>
+            </Tooltip>
+            <Button variant="outlined" color="secondary" onClick={() => setIsScanCheckInOpen(true)}>
+              + SCAN TO CHECK-IN
+            </Button>
+          </Box>
         </Box>
 
         {/* 🔔 Low Stock Alerts */}
@@ -141,7 +147,6 @@ export default function DashboardPage() {
           <Tooltip title={<Typography fontSize={14}>View which supplies are below their assigned low stock threshold and need to be restocked.</Typography>} arrow>
             <Box display="flex" alignItems="center" gap={0.5} mb={0.5}>
               <HelpOutlineIcon fontSize="small" sx={{ color: '#FFD700' }} />
-              <Typography variant="caption"></Typography>
             </Box>
           </Tooltip>
           <LowStockThreshold refreshKey={refreshKey} />
@@ -175,9 +180,9 @@ export default function DashboardPage() {
           </Tabs>
 
           {tabIndex === 0 && <Suppliers />}
-          {tabIndex === 1 && <Operatories onSupplyChange={handleSupplyChange} />}
+          {tabIndex === 1 && <Operatories onSupplyChange={handleSupplyChange} refreshKey={refreshKey} />}
           {tabIndex === 2 && <Categories />}
-          {tabIndex === 3 && <Supplies onSupplyChange={handleSupplyChange} />}
+          {tabIndex === 3 && <Supplies onSupplyChange={handleSupplyChange} refreshKey={refreshKey} />}
           {tabIndex === 4 && <AssignSupplyToOperatory />}
           {tabIndex === 5 && <Procedures />}
           {tabIndex === 6 && <UsageLog />}
@@ -186,6 +191,8 @@ export default function DashboardPage() {
 
       <ConsumeModal open={isConsumeOpen} onClose={() => setIsConsumeOpen(false)} onSupplyChange={handleSupplyChange} />
       <CheckInModal open={isCheckInOpen} onClose={() => setIsCheckInOpen(false)} onSupplyChange={handleSupplyChange} />
+      <ScanConsumeModal open={isScanConsumeOpen} onClose={() => setIsScanConsumeOpen(false)} operatories={user?.operatories || []} user={user} onSupplyChange={handleSupplyChange} />
+      <ScanCheckInModal open={isScanCheckInOpen} onClose={() => setIsScanCheckInOpen(false)} operatories={user?.operatories || []} user={user} onSupplyChange={handleSupplyChange} />
     </>
   )
 }

@@ -1,4 +1,3 @@
-// ✅ Final Supplies.jsx – Updated with Edit/Delete Left + Full Modal
 import { useEffect, useState } from 'react'
 import {
   Box,
@@ -12,11 +11,11 @@ import {
   InputLabel,
   FormControl,
   IconButton,
-  Snackbar,
   Tooltip,
-  Alert,
-  Divider,
   Chip,
+  Divider,
+  Snackbar,
+  Alert,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -33,367 +32,412 @@ import {
   deleteSupply,
   fetchAssignedBreakdown,
 } from '../services/SuppliesService'
-
 import { fetchCategories } from '../services/CategoriesService'
 import { fetchSuppliers } from '../services/SuppliersService'
-import { updateOpSupplyQuantity } from '../services/OpSuppliesService'
 
-export default function Supplies({ onSupplyChange }) {
+export default function Supplies({ onSupplyChange, refreshKey }) {
   const [supplies, setSupplies] = useState([])
+  const [assignedMap, setAssignedMap] = useState({})
+  const [loading, setLoading] = useState(true)
+  const [searchTerm, setSearchTerm] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
   const [categories, setCategories] = useState([])
   const [suppliers, setSuppliers] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [editingId, setEditingId] = useState(null)
-  const [editedSupply, setEditedSupply] = useState({})
-  const [assignedMap, setAssignedMap] = useState({})
-  const [toast, setToast] = useState({ open: false, message: '' })
-  const [name, setName] = useState('')
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+
+  const [newName, setNewName] = useState('')
   const [categoryId, setCategoryId] = useState('')
   const [supplierId, setSupplierId] = useState('')
   const [quantity, setQuantity] = useState('')
   const [costPerUnit, setCostPerUnit] = useState('')
   const [unit, setUnit] = useState('piece')
   const [lowStockThreshold, setLowStockThreshold] = useState('')
-  const [searchTerm, setSearchTerm] = useState('')
+
+  const [editingSupply, setEditingSupply] = useState(null)
 
   const user = JSON.parse(localStorage.getItem('user'))
   const token = localStorage.getItem('token')
 
+  const loadAll = async () => {
+    try {
+      setLoading(true)
+      const [suppliesData, categoriesData, suppliersData] = await Promise.all([
+        fetchSupplies(user.id, token),
+        fetchCategories(user.id),
+        fetchSuppliers(user.id, token),
+      ])
+      setSupplies(suppliesData)
+      setCategories(categoriesData)
+      setSuppliers(suppliersData)
+
+      const assigned = {}
+      for (const supply of suppliesData) {
+        try {
+          const ops = await fetchAssignedBreakdown(supply.id)
+          assigned[supply.id] = ops || []
+        } catch {
+          assigned[supply.id] = []
+        }
+      }
+      setAssignedMap(assigned)
+    } catch (err) {
+      console.error('❌ Failed loading supplies:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!user?.id) return
-
-    const loadAll = async () => {
-      try {
-        const [suppliesData, categoriesData, suppliersData] = await Promise.all([
-          fetchSupplies(user.id, token),
-          fetchCategories(user.id),
-          fetchSuppliers(user.id, token),
-        ])
-
-        setSupplies(suppliesData)
-        setCategories(categoriesData)
-        setSuppliers(suppliersData)
-
-        const assigned = {}
-        for (const supply of suppliesData) {
-          try {
-            const ops = await fetchAssignedBreakdown(supply.id)
-            assigned[supply.id] = ops || []
-          } catch (err) {
-            assigned[supply.id] = []
-          }
-        }
-        setAssignedMap(assigned)
-      } catch (err) {
-        console.error('❌ Failed loading supplies page data:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
-
     loadAll()
-  }, [user?.id, token])
+  }, [user?.id, token, refreshKey])
 
-  const handleAdd = () => {
-    if (!name.trim()) return
+  const filtered = supplies.filter((s) =>
+    s.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+
+  const handleAddNewSupply = async () => {
+    if (!newName.trim()) return
 
     const data = {
       user_id: user.id,
-      name,
+      name: newName,
       category_id: categoryId || null,
       supplier_id: supplierId || null,
-      quantity: quantity || null,
+      quantity: quantity || 0,
       cost_per_unit: costPerUnit || null,
       unit: unit || 'piece',
       low_stock_threshold: lowStockThreshold || 0,
     }
 
-    addSupply(data)
-      .then((newSupply) => {
-        setSupplies((prev) => [newSupply, ...prev])
-        setName('')
-        setCategoryId('')
-        setSupplierId('')
-        setQuantity('')
-        setCostPerUnit('')
-        setUnit('piece')
-        setLowStockThreshold('')
-        if (onSupplyChange) onSupplyChange()
-      })
-      .catch((err) => {
-        console.error('❌ Add supply failed:', err)
-      })
-  }
-
-  const handleEdit = (supply) => {
-    setEditingId(supply.id)
-    const editable = { ...supply }
-    const assigned = assignedMap[supply.id] || []
-    for (const entry of assigned) {
-      editable[`op_${entry.op_supply_id}`] = entry.quantity
-    }
-    setEditedSupply(editable)
-  }
-
- const handleSave = async () => {
-  try {
-    const assignedEntries = assignedMap[editingId] || []
-    const totalAssigned = assignedEntries.reduce((sum, entry) => {
-      const newQty = parseInt(editedSupply[`op_${entry.op_supply_id}`] || 0, 10)
-      return sum + newQty
-    }, 0)
-
-    const globalQty = parseInt(editedSupply.quantity || 0, 10)
-    if (totalAssigned > globalQty) {
-      alert(`Assigned total (${totalAssigned}) exceeds global quantity (${globalQty})`)
-      return
-    }
-
-    await updateSupply(editingId, editedSupply)
-
-    for (const entry of assignedEntries) {
-      const newQty = parseInt(editedSupply[`op_${entry.op_supply_id}`], 10)
-      if (!isNaN(newQty) && newQty !== entry.quantity) {
-        try {
-          await updateOpSupplyQuantity(entry.op_supply_id, newQty, token)
-        } catch (err) {
-          console.error(`❌ Failed to update op quantity for ${entry.op_supply_id}:`, err)
-        }
-      }
-    }
-
-    // 🔁 Refresh state from backend
-    const refreshed = await fetchSupplies(user.id, token)
-    setSupplies(refreshed)
-
-    const newAssignedMap = {}
-    for (const supply of refreshed) {
-      try {
-        const ops = await fetchAssignedBreakdown(supply.id)
-        newAssignedMap[supply.id] = ops || []
-      } catch (err) {
-        newAssignedMap[supply.id] = []
-      }
-    }
-    setAssignedMap(newAssignedMap)
-
-    setEditingId(null)
-    setEditedSupply({})
-    setToast({ open: true, message: 'Supply saved successfully' })
-    if (onSupplyChange) onSupplyChange()
-  } catch (err) {
-    console.error('❌ Update failed:', err)
-  }
-}
-
-  const handleDelete = async (id) => {
     try {
-      await deleteSupply(id)
-      setSupplies((prev) => prev.filter((s) => s.id !== id))
+      const newSupply = await addSupply(data)
+      setSupplies((prev) => [newSupply, ...prev])
       if (onSupplyChange) onSupplyChange()
+
+      setNewName('')
+      setCategoryId('')
+      setSupplierId('')
+      setQuantity('')
+      setCostPerUnit('')
+      setUnit('piece')
+      setLowStockThreshold('')
+      setShowAddForm(false)
+      setToast({ open: true, message: 'Supply added successfully!', severity: 'success' })
     } catch (err) {
-      console.error('❌ Delete failed:', err)
+      console.error('❌ Add supply failed:', err)
     }
   }
 
-  const filteredSupplies = supplies.filter((s) =>
-    s.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const handleEditSupply = async () => {
+    if (!editingSupply) return
+    try {
+      await updateSupply(editingSupply.id, editingSupply)
+      for (const op of editingSupply.assigned_quantities || []) {
+        await updateOpSupplyQuantity(editingSupply.id, op.op_id, op.quantity)
+      }
+      setToast({ open: true, message: 'Supply updated!', severity: 'success' })
+      setEditingSupply(null)
+      loadAll()
+    } catch (err) {
+      console.error('❌ Update supply failed:', err)
+    }
+  }
 
-  const legendItems = [
-    { label: 'Global Quantity', description: 'Total supply in the entire office, including supplies that have or have NOT been allocated to operatories.' },
-    { label: 'Assigned', description: 'Amount already assigned to operatories.' },
-    { label: 'Unassigned', description: 'Available to assign to operatories.' },
-    { label: 'Low Stock', description: 'You’ll get an alert when this supply is running low globally — meaning there is not much left available in your office to assign to operatories.' },
-  ]
+    const openEditModal = (supply) => {
+    setEditingSupply({
+      ...supply,
+      assigned_quantities: assignedMap[supply.id]?.map((op) => ({
+        op_name: op.op_name,
+        op_id: op.op_id,
+        quantity: op.quantity,
+      })) || [],
+    })
+  }
 
   return (
     <Box>
-      <Typography variant="h6" gutterBottom>Global Supplies</Typography>
+      <Box display="flex" justifyContent="flex-start" mb={1}>
+        <Button
+          variant="outlined"
+          size="small"
+          onClick={() => setShowAddForm((prev) => !prev)}
+        >
+          {showAddForm ? 'Cancel' : 'Add New'}
+        </Button>
+      </Box>
 
-{/* Add Supply Form */}
-<Box display="flex" flexDirection="column" gap={2} mb={4}>
-  <TextField label="Supply Name" value={name} onChange={(e) => setName(e.target.value)} />
+      <Typography variant="h6" gutterBottom>
+        Supplies
+      </Typography>
 
-  <FormControl>
+      {showAddForm && (
+        <Box display="flex" flexDirection="column" gap={2} my={2}>
+          <TextField label="Supply Name" value={newName} onChange={(e) => setNewName(e.target.value)} />
+          <FormControl fullWidth>
+            <InputLabel>Category</InputLabel>
+            <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} label="Category">
+              {categories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl fullWidth>
+            <InputLabel>Supplier</InputLabel>
+            <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} label="Supplier">
+              {suppliers.map((sup) => (
+                <MenuItem key={sup.id} value={sup.id}>{sup.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField label="Quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
+          <TextField label="Low Stock Threshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} />
+          <TextField label="Cost per Unit" type="number" value={costPerUnit} onChange={(e) => setCostPerUnit(e.target.value)} />
+          <FormControl fullWidth>
+            <InputLabel>Unit</InputLabel>
+            <Select value={unit} onChange={(e) => setUnit(e.target.value)} label="Unit">
+              <MenuItem value="piece">Piece(s)</MenuItem>
+              <MenuItem value="box">Box(es)</MenuItem>
+              <MenuItem value="container">Container(s)</MenuItem>
+            </Select>
+          </FormControl>
+          <Button variant="contained" onClick={handleAddNewSupply}>Add Supply</Button>
+        </Box>
+      )}
+
+      <TextField
+        label="Search Supplies"
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        fullWidth
+        sx={{ mb: 3 }}
+      />
+
+      <Divider sx={{ mb: 2 }} />
+
+      {loading ? (
+        <CircularProgress />
+      ) : filtered.length === 0 ? (
+        <Typography>No supplies found.</Typography>
+      ) : (
+        filtered.map((supply) => {
+          const assignedList = assignedMap[supply.id] || []
+          const assigned = assignedList.reduce((sum, e) => sum + (e.quantity || 0), 0)
+          const unassigned = supply.quantity || 0
+          const total = assigned + unassigned
+
+          return (
+  <Paper key={supply.id} sx={{ p: 2, mb: 2 }}>
+    <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
+      <IconButton onClick={() => setEditingSupply(supply)}><EditIcon /></IconButton>
+      <IconButton color="error"><DeleteIcon /></IconButton>
+      <Typography fontWeight="bold">{supply.name}</Typography>
+
+      <Chip label={`Unassigned: ${unassigned}`} color="primary" />
+
+<Chip
+  label={`Low Stock Threshold: ${supply.low_stock_threshold || 0}`}
+  color={
+    (supply.quantity || 0) <= (supply.low_stock_threshold || 0)
+      ? 'error'
+      : 'default'
+  }
+  variant="outlined"
+/>
+
+<Tooltip
+  title={
+    <Box>
+      {assignedList.map((a, i) => (
+        <Typography key={i}>{a.op_name}: {a.quantity}</Typography>
+      ))}
+    </Box>
+  }
+  arrow
+>
+  <Chip label={`Assigned: ${assigned}`} color="secondary" />
+</Tooltip>
+
+<Chip
+  label={`Category: ${
+    categories.find((cat) => cat.id === supply.category_id)?.name || 'Unassigned'
+  }`}
+  variant="outlined"
+/>
+
+<Chip
+  label={`Supplier: ${
+    suppliers.find((sup) => sup.id === supply.supplier_id)?.name || 'Unassigned'
+  }`}
+  variant="outlined"
+/>
+
+<Chip label={`Unit: ${supply.unit}`} variant="outlined" />
+<Chip label={`Cost: $${Number(supply.cost_per_unit || 0).toFixed(2)}`} variant="outlined" />
+<Chip label={`Barcode: ${supply.barcode || 'None'}`} variant="outlined" />
+    </Box>
+  </Paper>
+)
+
+        })
+      )}
+
+      <Dialog open={!!editingSupply} onClose={() => setEditingSupply(null)} maxWidth="sm" fullWidth>
+  <DialogTitle>Edit Supply</DialogTitle>
+  <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+  <TextField
+    label="Supply Name"
+    value={editingSupply?.name || ''}
+    onChange={(e) =>
+      setEditingSupply((prev) => ({ ...prev, name: e.target.value }))
+    }
+  />
+
+  <FormControl fullWidth>
     <InputLabel>Category</InputLabel>
-    <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} label="Category">
+    <Select
+      value={editingSupply?.category_id || ''}
+      onChange={(e) =>
+        setEditingSupply((prev) => ({
+          ...prev,
+          category_id: e.target.value,
+        }))
+      }
+    >
       {categories.map((cat) => (
-        <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+        <MenuItem key={cat.id} value={cat.id}>
+          {cat.name}
+        </MenuItem>
       ))}
     </Select>
   </FormControl>
-  <Typography variant="body2" color="textSecondary" sx={{ ml: 1, mt: -1 }}>
-    Create supply categories in the Categories tab.
-  </Typography>
 
-  <FormControl>
+  <FormControl fullWidth>
     <InputLabel>Supplier</InputLabel>
-    <Select value={supplierId} onChange={(e) => setSupplierId(e.target.value)} label="Supplier">
+    <Select
+      value={editingSupply?.supplier_id || ''}
+      onChange={(e) =>
+        setEditingSupply((prev) => ({
+          ...prev,
+          supplier_id: e.target.value,
+        }))
+      }
+    >
       {suppliers.map((sup) => (
-        <MenuItem key={sup.id} value={sup.id}>{sup.name}</MenuItem>
+        <MenuItem key={sup.id} value={sup.id}>
+          {sup.name}
+        </MenuItem>
       ))}
     </Select>
   </FormControl>
-  <Typography variant="body2" color="textSecondary" sx={{ ml: 1, mt: -1 }}>
-    Create suppliers in the Suppliers tab.
-  </Typography>
 
-  <TextField label="Global Quantity" type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)} />
-  <Typography variant="body2" color="textSecondary" sx={{ ml: 1, mt: -1 }}>
-    This is the amount of this supply you are adding to your global stock. You can then assign them to an operatory in the Send Supplies to Operatory tab after creating Operatories.
-  </Typography>
+  <TextField
+    label="Quantity"
+    type="number"
+    value={editingSupply?.quantity || ''}
+    onChange={(e) =>
+      setEditingSupply((prev) => ({ ...prev, quantity: e.target.value }))
+    }
+  />
 
-  <TextField label="Low Stock Threshold" type="number" value={lowStockThreshold} onChange={(e) => setLowStockThreshold(e.target.value)} />
-  <Typography variant="body2" color="textSecondary" sx={{ ml: 1, mt: -1 }}>
-    If this supply reaches at or below this threshold, a low stock alert will be triggered. This threshold is for supply availability at a global level.
-  </Typography>
+  <TextField
+    label="Low Stock Threshold"
+    type="number"
+    value={editingSupply?.low_stock_threshold || ''}
+    onChange={(e) =>
+      setEditingSupply((prev) => ({
+        ...prev,
+        low_stock_threshold: e.target.value,
+      }))
+    }
+  />
 
-  <TextField label="Cost per Unit" type="number" value={costPerUnit} onChange={(e) => setCostPerUnit(e.target.value)} />
+  <TextField
+    label="Cost per Unit"
+    type="number"
+    value={editingSupply?.cost_per_unit || ''}
+    onChange={(e) =>
+      setEditingSupply((prev) => ({
+        ...prev,
+        cost_per_unit: e.target.value,
+      }))
+    }
+  />
 
-  <FormControl>
+  <FormControl fullWidth>
     <InputLabel>Unit</InputLabel>
-    <Select value={unit} onChange={(e) => setUnit(e.target.value)} label="Unit">
+    <Select
+      value={editingSupply?.unit || 'piece'}
+      onChange={(e) =>
+        setEditingSupply((prev) => ({ ...prev, unit: e.target.value }))
+      }
+    >
       <MenuItem value="piece">Piece(s)</MenuItem>
       <MenuItem value="box">Box(es)</MenuItem>
       <MenuItem value="container">Container(s)</MenuItem>
     </Select>
   </FormControl>
 
-  <Button variant="contained" onClick={handleAdd}>Add</Button>
-
   <TextField
-    label="Search Supplies"
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    placeholder="Search by name"
+    label="Barcode"
+    value={editingSupply?.barcode || ''}
+    onChange={(e) =>
+      setEditingSupply((prev) => ({ ...prev, barcode: e.target.value }))
+    }
   />
-</Box>
 
-      {/* Legend */}
-      <Divider sx={{ my: 3 }} />
-      <Box display="flex" alignItems="center" gap={2} flexWrap="wrap" mb={4}>
-        {legendItems.map((item) => (
-          <Tooltip key={item.label} title={<Typography sx={{ fontSize: '14px' }}>{item.description}</Typography>} arrow>
-            <Chip label={item.label} variant="outlined" />
-          </Tooltip>
+  {editingSupply?.assigned_quantities?.length > 0 && (
+    <Box>
+      <Typography variant="subtitle1" fontWeight="bold">
+        Assigned Operatories
+      </Typography>
+      <Box display="flex" flexDirection="column" gap={1} mt={1}>
+        {editingSupply.assigned_quantities.map((op, idx) => (
+          <Box key={idx} display="flex" alignItems="center" gap={2}>
+            <Typography width="100px">{op.op_name}</Typography>
+            <TextField
+              type="number"
+              size="small"
+              value={op.quantity}
+              onChange={(e) => {
+                const value = e.target.value
+                setEditingSupply((prev) => {
+                  const updated = [...prev.assigned_quantities]
+                  updated[idx] = { ...updated[idx], quantity: value }
+                  return { ...prev, assigned_quantities: updated }
+                })
+              }}
+              sx={{ width: '100px' }}
+            />
+          </Box>
         ))}
       </Box>
-
-      {loading ? (
-        <CircularProgress />
-      ) : filteredSupplies.length === 0 ? (
-        <Typography>No supplies found.</Typography>
-      ) : (
-        filteredSupplies.map((supply) => {
-          const assignedEntries = assignedMap[supply.id] || []
-          const totalAssigned = assignedEntries.reduce((sum, s) => sum + (s.quantity || 0), 0)
-          const unassigned = Math.max(0, (supply.quantity || 0) - totalAssigned)
-          const totalValue = ((supply.quantity || 0) * (supply.cost_per_unit || 0)).toFixed(2)
-
-          return (
-            <Paper key={supply.id} sx={{ p: 2, mb: 2 }}>
-  <Box
-    display="flex"
-    alignItems="center"
-    flexWrap="nowrap"
-    gap={1}
-    overflow="auto"
-    whiteSpace="nowrap"
-    sx={{
-      '&::-webkit-scrollbar': { display: 'none' },
-      scrollbarWidth: 'none',
-    }}
-  >
-    <IconButton onClick={() => handleEdit(supply)}><EditIcon /></IconButton>
-    <IconButton color="error" onClick={() => handleDelete(supply.id)}><DeleteIcon /></IconButton>
-    <Typography fontWeight="bold" sx={{ mr: 1 }}>{supply.name}</Typography>
-    <Chip label={`Global: ${supply.quantity || 0}`} color="primary" />
-    <Tooltip
-  title={
-    <Box>
-      {assignedEntries.map((e, idx) => (
-        <Typography key={idx} sx={{ fontSize: '16px', lineHeight: 1.5 }}>
-          {e.op_name}: {e.quantity}
-        </Typography>
-      ))}
     </Box>
-  }
-  arrow
->
-  <Chip label={`Assigned: ${totalAssigned}`} color="secondary" />
-</Tooltip>
-    <Chip label={`Unassigned: ${unassigned}`} />
-    <Chip
-  label={`Low Stock: ${supply.low_stock_threshold || 0}`}
-  variant="outlined"
-  color={(supply.quantity || 0) <= (supply.low_stock_threshold || 0) ? 'error' : 'default'}
-  sx={(supply.quantity || 0) <= (supply.low_stock_threshold || 0) ? { borderColor: 'error.main', color: 'error.main' } : {}}
-/>
-    <Chip label={`Category: ${supply.category_name || 'None'}`} variant="outlined" />
-    <Chip label={`Supplier: ${supply.supplier_name || 'None'}`} variant="outlined" />
-    <Chip label={`Cost: $${supply.cost_per_unit || '-'} per ${supply.unit || 'piece'}`} variant="outlined" />
-    <Chip label={`$${totalValue} Total`} variant="outlined" />
-  </Box>
-</Paper>
+  )}
+</DialogContent>
 
-          )
-        })
-      )}
 
-      {/* Edit Modal */}
-      <Dialog open={!!editingId} onClose={() => setEditingId(null)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit Supply</DialogTitle>
-        <DialogContent>
-          <TextField fullWidth label="Name" value={editedSupply.name || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, name: e.target.value }))} sx={{ mb: 2 }} />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Category</InputLabel>
-            <Select value={editedSupply.category_id || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, category_id: e.target.value }))}>
-              {categories.map((cat) => (<MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>))}
-            </Select>
-          </FormControl>
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Supplier</InputLabel>
-            <Select value={editedSupply.supplier_id || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, supplier_id: e.target.value }))}>
-              {suppliers.map((sup) => (<MenuItem key={sup.id} value={sup.id}>{sup.name}</MenuItem>))}
-            </Select>
-          </FormControl>
-          <TextField fullWidth label="Global Quantity" type="number" value={editedSupply.quantity || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, quantity: e.target.value }))} sx={{ mb: 2 }} />
-          <TextField fullWidth label="Low Stock Threshold" type="number" value={editedSupply.low_stock_threshold || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, low_stock_threshold: e.target.value }))} sx={{ mb: 2 }} />
-          <TextField fullWidth label="Cost per Unit" type="number" value={editedSupply.cost_per_unit || ''} onChange={(e) => setEditedSupply((prev) => ({ ...prev, cost_per_unit: e.target.value }))} sx={{ mb: 2 }} />
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Unit</InputLabel>
-            <Select value={editedSupply.unit || 'piece'} onChange={(e) => setEditedSupply((prev) => ({ ...prev, unit: e.target.value }))}>
-              <MenuItem value="piece">Piece(s)</MenuItem>
-              <MenuItem value="box">Box(es)</MenuItem>
-              <MenuItem value="container">Container(s)</MenuItem>
-            </Select>
-          </FormControl>
-          {assignedMap[editingId]?.length > 0 && (
-            <Box>
-              <Typography variant="subtitle2" sx={{ mb: 1 }}>Assigned Supplies</Typography>
-              {assignedMap[editingId].map((entry) => (
-                <TextField
-                  key={`edit-${entry.op_supply_id}`}
-                  fullWidth
-                  label={`Quantity for ${entry.op_name}`}
-                  type="number"
-                  value={editedSupply[`op_${entry.op_supply_id}`] ?? entry.quantity}
-                  onChange={(e) => setEditedSupply((prev) => ({ ...prev, [`op_${entry.op_supply_id}`]: e.target.value }))}
-                  sx={{ mb: 1 }}
-                />
-              ))}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditingId(null)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained">Save</Button>
-        </DialogActions>
-      </Dialog>
+  <DialogActions>
+    <Button onClick={() => setEditingSupply(null)}>Cancel</Button>
+    <Button onClick={handleEditSupply} variant="contained" startIcon={<SaveIcon />}>
+      Save
+    </Button>
+  </DialogActions>
+</Dialog>
 
-      <Snackbar open={toast.open} autoHideDuration={3000} onClose={() => setToast({ open: false, message: '' })} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
-        <Alert onClose={() => setToast({ open: false, message: '' })} severity="success" sx={{ width: '100%' }}>
+
+
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={3000}
+        onClose={() => setToast({ ...toast, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          onClose={() => setToast({ ...toast, open: false })}
+          severity={toast.severity}
+          sx={{ width: '100%' }}
+        >
           {toast.message}
         </Alert>
       </Snackbar>

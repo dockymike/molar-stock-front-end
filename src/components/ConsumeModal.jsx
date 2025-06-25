@@ -1,3 +1,4 @@
+// ✅ ConsumeModal.jsx – Only subtracts from op_supplies
 import {
   Dialog,
   DialogTitle,
@@ -32,10 +33,10 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
   const [selectedOp, setSelectedOp] = useState('')
   const [selectedProcedure, setSelectedProcedure] = useState('')
   const [opSupplies, setOpSupplies] = useState([])
-  const [quantities, setQuantities] = useState({})
   const [manualSupplies, setManualSupplies] = useState([])
   const [allOpSupplies, setAllOpSupplies] = useState([])
-  const [alertMessage, setAlertMessage] = useState('')
+  const [quantities, setQuantities] = useState({})
+  const [error, setError] = useState('')
   const [toast, setToast] = useState({ open: false, message: '' })
 
   useEffect(() => {
@@ -46,18 +47,15 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
   }, [user?.id])
 
   useEffect(() => {
-    if (selectedOp) {
-      fetchOpSupplies(selectedOp).then(setAllOpSupplies)
-    }
+    if (selectedOp) fetchOpSupplies(selectedOp).then(setAllOpSupplies)
   }, [selectedOp])
 
   useEffect(() => {
-    const loadAndMatchProcedureSupplies = async () => {
+    const load = async () => {
       if (!selectedProcedure || !selectedOp || allOpSupplies.length === 0) return
 
-      const procedureSupplies = await fetchSuppliesForProcedure(selectedProcedure)
-
-      const matched = procedureSupplies.map((ps) => {
+      const procSupplies = await fetchSuppliesForProcedure(selectedProcedure)
+      const matched = procSupplies.map((ps) => {
         const opSupply = allOpSupplies.find((op) => op.supply_id === ps.supply_id)
         return {
           supply_id: ps.supply_id,
@@ -67,36 +65,32 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
           procedure_quantity: ps.procedure_quantity || 0,
         }
       })
-
       setOpSupplies(matched)
 
       const newQuantities = {}
       matched.forEach((s) => {
         newQuantities[s.supply_id] = s.available > 0 ? s.procedure_quantity : 0
       })
-
       setQuantities((prev) => ({ ...prev, ...newQuantities }))
     }
-
-    loadAndMatchProcedureSupplies()
+    load()
   }, [selectedProcedure, selectedOp, allOpSupplies])
 
   const handleQuantityChange = (supplyId, delta) => {
-    const currentQty = quantities[supplyId] || 0
     const opSupply = allOpSupplies.find((s) => s.supply_id === supplyId)
-    const availableQty = opSupply ? opSupply.quantity : 0
-
-    const newQty = Math.max(0, Math.min(currentQty + delta, availableQty))
+    const available = opSupply ? opSupply.quantity : 0
+    const newQty = Math.max(0, Math.min((quantities[supplyId] || 0) + delta, available))
     setQuantities((prev) => ({ ...prev, [supplyId]: newQty }))
   }
 
   const handleAddManualSupply = (supply) => {
-    if (!quantities[supply.supply_id]) {
+    const exists = opSupplies.some((s) => s.supply_id === supply.supply_id) ||
+                   manualSupplies.some((s) => s.supply_id === supply.supply_id)
+    if (!exists) {
       const opSupply = allOpSupplies.find((s) => s.supply_id === supply.supply_id)
-      const availableQty = opSupply ? opSupply.quantity : 0
-
+      const available = opSupply ? opSupply.quantity : 0
       setManualSupplies((prev) => [...prev, { ...supply, unit: supply.unit || 'piece(s)' }])
-      setQuantities((prev) => ({ ...prev, [supply.supply_id]: availableQty > 0 ? 1 : 0 }))
+      setQuantities((prev) => ({ ...prev, [supply.supply_id]: available > 0 ? 1 : 0 }))
     }
   }
 
@@ -111,13 +105,12 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
   }
 
   const handleSubmit = async () => {
-    const overused = Object.entries(quantities).filter(([supply_id, qty]) => {
-      const availableQty = allOpSupplies.find((s) => s.supply_id === Number(supply_id))?.quantity || 0
-      return qty > availableQty
+    const overused = Object.entries(quantities).filter(([id, qty]) => {
+      const available = allOpSupplies.find((s) => s.supply_id === Number(id))?.quantity || 0
+      return qty > available
     })
-
     if (overused.length > 0) {
-      setAlertMessage('One or more quantities exceed the available supply in this operatory.')
+      setError('One or more supplies exceed available quantity in this operatory.')
       return
     }
 
@@ -132,28 +125,24 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
         procedure_id: selectedProcedure || null,
       }))
 
-    for (const log of logs) {
-      try {
-        await logSupplyUse(log)
-      } catch (err) {
-        console.error('Log failed:', err)
-      }
+    try {
+      for (const log of logs) await logSupplyUse(log)
+      setToast({ open: true, message: 'Supplies logged successfully' })
+      if (onSupplyChange) onSupplyChange()
+      setTimeout(() => {
+        onClose()
+        setStep(1)
+        setSelectedOp('')
+        setSelectedProcedure('')
+        setOpSupplies([])
+        setManualSupplies([])
+        setQuantities({})
+        setError('')
+      }, 500)
+    } catch (err) {
+      console.error('❌ Log error:', err)
+      setError('Failed to log some supplies.')
     }
-
-    setToast({ open: true, message: 'Supplies logged successfully' })
-
-    if (onSupplyChange) onSupplyChange()
-
-    setTimeout(() => {
-      onClose()
-      setStep(1)
-      setSelectedOp('')
-      setSelectedProcedure('')
-      setQuantities({})
-      setOpSupplies([])
-      setManualSupplies([])
-      setAlertMessage('')
-    }, 500)
   }
 
   return (
@@ -197,48 +186,29 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
                 renderInput={(params) => <TextField {...params} label="Add Supply Manually" margin="normal" />}
               />
 
-              {alertMessage && (
-                <Alert severity="error" sx={{ mt: 2 }}>
-                  {alertMessage}
-                </Alert>
-              )}
+              {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
 
               <Typography mt={2} variant="subtitle1">Selected Supplies:</Typography>
               {[...opSupplies, ...manualSupplies].map((supply) => {
-                const currentQty = quantities[supply.supply_id] || 0
-                const availableQty = allOpSupplies.find((s) => s.supply_id === supply.supply_id)?.quantity || 0
+                const qty = quantities[supply.supply_id] || 0
+                const available = allOpSupplies.find((s) => s.supply_id === supply.supply_id)?.quantity || 0
                 const unit = supply.unit || 'piece(s)'
 
                 return (
-                  <Box
-                    key={supply.supply_id}
-                    display="flex"
-                    justifyContent="space-between"
-                    alignItems="center"
-                    my={1}
-                  >
+                  <Box key={supply.supply_id} display="flex" justifyContent="space-between" alignItems="center" my={1}>
                     <Box>
                       <Typography>{supply.supply_name} ({unit})</Typography>
-                      {availableQty === 0 && (
+                      {available === 0 && (
                         <Typography variant="caption" color="error">
                           0 available in this operatory
                         </Typography>
                       )}
                     </Box>
                     <Box display="flex" alignItems="center">
-                      <IconButton onClick={() => handleQuantityChange(supply.supply_id, -1)}>
-                        <Remove />
-                      </IconButton>
-                      <Typography mx={1}>{currentQty}</Typography>
-                      <IconButton
-                        onClick={() => handleQuantityChange(supply.supply_id, 1)}
-                        disabled={currentQty >= availableQty}
-                      >
-                        <Add />
-                      </IconButton>
-                      <IconButton onClick={() => handleRemoveSupply(supply.supply_id)}>
-                        <Delete />
-                      </IconButton>
+                      <IconButton onClick={() => handleQuantityChange(supply.supply_id, -1)}><Remove /></IconButton>
+                      <Typography mx={1}>{qty}</Typography>
+                      <IconButton onClick={() => handleQuantityChange(supply.supply_id, 1)} disabled={qty >= available}><Add /></IconButton>
+                      <IconButton onClick={() => handleRemoveSupply(supply.supply_id)}><Delete /></IconButton>
                     </Box>
                   </Box>
                 )
@@ -250,15 +220,11 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
           {step === 1 ? (
-            <Button variant="contained" disabled={!selectedOp} onClick={() => setStep(2)}>
-              Next
-            </Button>
+            <Button variant="contained" disabled={!selectedOp} onClick={() => setStep(2)}>Next</Button>
           ) : (
             <>
               <Button onClick={() => setStep(1)}>Back</Button>
-              <Button variant="contained" onClick={handleSubmit} disabled={!selectedOp}>
-                Submit
-              </Button>
+              <Button variant="contained" onClick={handleSubmit} disabled={!selectedOp}>Submit</Button>
             </>
           )}
         </DialogActions>
@@ -270,11 +236,7 @@ export default function ConsumeModal({ open, onClose, onSupplyChange }) {
         onClose={() => setToast({ open: false, message: '' })}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
       >
-        <Alert
-          onClose={() => setToast({ open: false, message: '' })}
-          severity="success"
-          sx={{ width: '100%' }}
-        >
+        <Alert onClose={() => setToast({ open: false, message: '' })} severity="success" sx={{ width: '100%' }}>
           {toast.message}
         </Alert>
       </Snackbar>

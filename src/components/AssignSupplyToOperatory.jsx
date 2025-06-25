@@ -1,3 +1,4 @@
+// ✅ DEBUG LOGGED AssignSupplyToOperatory.jsx
 import { useEffect, useState } from 'react'
 import {
   Box,
@@ -24,50 +25,23 @@ export default function AssignSupplyToOperatory({ onSupplyChange }) {
   const [selectedOps, setSelectedOps] = useState([])
   const [selectedSupply, setSelectedSupply] = useState('')
   const [quantity, setQuantity] = useState(1)
-  const [unassignedMap, setUnassignedMap] = useState({})
   const [toast, setToast] = useState({ open: false, message: '' })
 
   const user = JSON.parse(localStorage.getItem('user'))
+  const token = localStorage.getItem('token')
 
   const loadData = async () => {
-    console.log('🔄 Fetching operatories and supplies for user:', user.id)
-
     try {
       const [opsData, suppliesData] = await Promise.all([
         fetchOperatories(user.id),
-        fetchSupplies(user.id, localStorage.getItem('token')),
+        fetchSupplies(user.id, token),
       ])
-
+      console.log('✅ Loaded Operatories:', opsData)
+      console.log('✅ Loaded Supplies:', suppliesData)
       setOps(opsData)
-      console.log('✅ Operatories loaded:', opsData)
-      console.log('✅ Supplies loaded (raw):', suppliesData)
-
-      const enriched = await Promise.all(
-        suppliesData.map(async (supply) => {
-          const assigned = await fetchAssignedQuantity(supply.id)
-          const unassigned = Math.max(0, supply.quantity - assigned)
-
-          console.log(`🧮 Supply: ${supply.name}`)
-          console.log(`   - Global Quantity: ${supply.quantity}`)
-          console.log(`   - Assigned Total: ${assigned}`)
-          console.log(`   - Calculated Unassigned: ${unassigned}`)
-
-          return { ...supply, assigned, unassigned }
-        })
-      )
-
-      const unassignedQtyMap = {}
-      enriched.forEach((s) => {
-        unassignedQtyMap[s.id] = s.unassigned
-      })
-
-      console.log('📊 Final Enriched Supplies:', enriched)
-      console.log('📦 Unassigned Map:', unassignedQtyMap)
-
-      setSupplies(enriched)
-      setUnassignedMap(unassignedQtyMap)
+      setSupplies(suppliesData)
     } catch (err) {
-      console.error('❌ Failed to load operatories or supplies:', err)
+      console.error('❌ Failed to load data:', err)
     }
   }
 
@@ -77,46 +51,51 @@ export default function AssignSupplyToOperatory({ onSupplyChange }) {
   }, [user?.id])
 
   const handleAssign = async () => {
-    if (selectedOps.length === 0 || !selectedSupply) return
+    console.log('--- 🟡 Starting Assignment ---')
+    console.log('📦 Selected Supply ID:', selectedSupply)
+    console.log('🦷 Selected Ops:', selectedOps)
+    console.log('🔢 Quantity per op:', quantity)
 
-    const unassigned = unassignedMap[selectedSupply] || 0
+    if (selectedOps.length === 0 || !selectedSupply) {
+      console.warn('⚠️ Must select at least one operatory and a supply.')
+      return
+    }
+
+    const supply = supplies.find((s) => s.id === selectedSupply)
+    if (!supply) {
+      console.warn('⚠️ Supply not found in loaded list.')
+      return
+    }
+
     const totalRequested = selectedOps.length * Number(quantity)
-
-    console.log('📋 Submitting assignment:')
-    console.log('   - Selected Ops:', selectedOps)
-    console.log('   - Selected Supply:', selectedSupply)
-    console.log('   - Quantity per Op:', quantity)
-    console.log('   - Total Requested:', totalRequested)
-    console.log('   - Unassigned Available:', unassigned)
+    const unassigned = supply.quantity
+    console.log(`📊 Total Requested: ${totalRequested}, Unassigned Available: ${unassigned}`)
 
     if (totalRequested > unassigned) {
-      alert(`Not enough stock. Only ${unassigned} units unassigned.`)
+      alert(`❌ Not enough unassigned stock. Only ${unassigned} available.`)
       return
     }
 
     for (const opId of selectedOps) {
       try {
+        console.log(`✅ Assigning ${quantity} of supply ${selectedSupply} to op ${opId}`)
         await assignSupplyToOperatory({
           op_id: opId,
           supply_id: selectedSupply,
           quantity: Number(quantity),
         })
-        console.log(`✅ Assigned ${quantity} to Operatory ID: ${opId}`)
       } catch (err) {
         console.error(`❌ Failed assigning to op ${opId}:`, err.message)
       }
     }
 
+    console.log('✅ Assignment complete. Refreshing data...')
     setSelectedOps([])
     setSelectedSupply('')
     setQuantity(1)
     setToast({ open: true, message: 'Supply assigned successfully' })
     await loadData()
-
-    if (onSupplyChange) {
-      console.log('🔁 Triggering onSupplyChange() from parent...')
-      onSupplyChange()
-    }
+    if (onSupplyChange) onSupplyChange()
   }
 
   return (
@@ -148,7 +127,7 @@ export default function AssignSupplyToOperatory({ onSupplyChange }) {
         >
           {supplies.map((supply) => (
             <MenuItem key={supply.id} value={supply.id}>
-              {supply.name} ({supply.unassigned} available)
+              {supply.name} ({supply.quantity} unassigned)
             </MenuItem>
           ))}
         </Select>

@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import { BrowserRouter } from 'react-router-dom'
 import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { SnackbarProvider } from 'notistack' // ✅ import notistack
 
 const theme = createTheme({
   palette: {
@@ -21,7 +22,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <SnackbarProvider
+          maxSnack={5}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+          autoHideDuration={4000}
+        >
+          <App />
+        </SnackbarProvider>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>

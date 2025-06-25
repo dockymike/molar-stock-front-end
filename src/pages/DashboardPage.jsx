@@ -76,7 +76,7 @@ export default function DashboardPage() {
     { label: 'Operatories', description: 'Track which supplies and their quantities are assigned to each operatory. Set low supply threshold alerts for individual supplies in the operatory.' },
     { label: 'Categories', description: 'Organize your supplies into categories like gloves, anesthetic, etc.' },
     { label: 'Unassigned Supplies', description: 'View and manage total inventory of all supplies available in your practice. Set price per units to track expenses and set low supply threshold alerts on your Unassigned supplies.' },
-    { label: 'Send Supplies to Operatory', description: 'Distribute items from global inventory into individual operatories.' },
+    { label: 'Send Supplies to Operatory', description: 'Distribute items from Unassigned inventory into individual operatories.' },
     { label: 'Procedures', description: 'Define procedures and assign default supply quantities for each for quick consumption.' },
     { label: 'Usage Logs', description: 'Track when and where supplies were used across your office and cost of supplies per procedure.' },
   ]

@@ -98,7 +98,7 @@ export default function DashboardPage() {
               </Box>
             </Tooltip>
             <Button variant="contained" color="primary" onClick={() => setIsConsumeOpen(true)}>
-              + CONSUME SUPPLIES
+              + MANUALLY CONSUME SUPPLIES
             </Button>
           </Box>
 
@@ -111,7 +111,7 @@ export default function DashboardPage() {
               </Box>
             </Tooltip>
             <Button variant="contained" color="secondary" onClick={() => setIsCheckInOpen(true)}>
-              + CHECK-IN SUPPLIES
+              + MANUALLY CHECK-IN SUPPLIES
             </Button>
           </Box>
 

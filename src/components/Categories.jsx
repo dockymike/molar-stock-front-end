@@ -64,10 +64,18 @@ export default function Categories() {
     setToast({ open: true, message: 'Category saved successfully' })
   }
 
-  const handleDelete = async (id) => {
+const handleDelete = async (id) => {
+  try {
     await deleteCategory(id)
     setCategories((prev) => prev.filter((cat) => cat.id !== id))
+  } catch (err) {
+    console.error('Category delete failed:', err)
+    const message =
+      err?.response?.data?.error || 'An error occurred while deleting the category.'
+    alert(message) // 👈 Regular popup for failure
   }
+}
+
 
   return (
     <Box>

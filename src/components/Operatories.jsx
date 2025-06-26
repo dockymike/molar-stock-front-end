@@ -51,7 +51,7 @@ export default function Operatories({ refreshKey }) {
   const [editingId, setEditingId] = useState(null)
   const [editedName, setEditedName] = useState('')
   const [editingSupply, setEditingSupply] = useState({})
-  const [toast, setToast] = useState({ open: false, message: '' })
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   const user = JSON.parse(localStorage.getItem('user'))
   const token = localStorage.getItem('token')
@@ -118,12 +118,26 @@ export default function Operatories({ refreshKey }) {
     setToast({ open: true, message: 'Operatory name saved successfully' })
   }
 
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this operatory?')) return
+const handleDelete = async (id) => {
+  if (!window.confirm('Delete this operatory?')) return
+
+  try {
     await deleteOperatory(id)
     setOps((prev) => prev.filter((op) => op.id !== id))
     if (expandedId === id) setExpandedId(null)
+    setToast({ open: true, message: 'Operatory deleted successfully' })
+  } catch (err) {
+    console.error('❌ Delete failed:', err)
+
+    const errorMessage =
+      err?.response?.data?.error ||
+      'An error occurred while trying to delete the operatory.'
+
+     window.alert(errorMessage)
+
   }
+}
+
 
   const handleSupplyEdit = (opId, supply) => {
     setEditingSupply({ ...supply, opId, low_stock_threshold: supply.low_stock_threshold || '' })

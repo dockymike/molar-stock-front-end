@@ -44,6 +44,8 @@ export default function Supplies({ onSupplyChange, refreshKey }) {
   const [categories, setCategories] = useState([])
   const [suppliers, setSuppliers] = useState([])
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+  const [deleteError, setDeleteError] = useState({ open: false, message: '' })
+
 
   const [newName, setNewName] = useState('')
   const [categoryId, setCategoryId] = useState('')
@@ -230,7 +232,26 @@ export default function Supplies({ onSupplyChange, refreshKey }) {
   <Paper key={supply.id} sx={{ p: 2, mb: 2 }}>
     <Box display="flex" alignItems="center" gap={1} flexWrap="wrap">
       <IconButton onClick={() => setEditingSupply(supply)}><EditIcon /></IconButton>
-      <IconButton color="error"><DeleteIcon /></IconButton>
+      <IconButton
+  color="error"
+  onClick={async () => {
+  if (!window.confirm('Are you sure you want to delete this supply?')) return
+  try {
+    await deleteSupply(supply.id)
+    setSupplies((prev) => prev.filter((s) => s.id !== supply.id))
+    if (onSupplyChange) onSupplyChange()
+    setToast({ open: true, message: 'Supply deleted successfully.', severity: 'success' })
+  } catch (err) {
+    const msg =
+      err?.response?.data?.error ||
+      'Failed to delete supply.'
+    setDeleteError({ open: true, message: msg })
+  }
+}}
+
+>
+  <DeleteIcon />
+</IconButton>
       <Typography fontWeight="bold">{supply.name}</Typography>
 
       <Chip label={`Unassigned: ${unassigned}`} color="primary" />
@@ -421,6 +442,22 @@ export default function Supplies({ onSupplyChange, refreshKey }) {
     <Button onClick={() => setEditingSupply(null)}>Cancel</Button>
     <Button onClick={handleEditSupply} variant="contained" startIcon={<SaveIcon />}>
       Save
+    </Button>
+  </DialogActions>
+</Dialog>
+
+
+<Dialog
+  open={deleteError.open}
+  onClose={() => setDeleteError({ open: false, message: '' })}
+>
+  <DialogTitle>Cannot Delete Supply</DialogTitle>
+  <DialogContent>
+    <Typography>{deleteError.message}</Typography>
+  </DialogContent>
+  <DialogActions>
+    <Button onClick={() => setDeleteError({ open: false, message: '' })}>
+      OK
     </Button>
   </DialogActions>
 </Dialog>

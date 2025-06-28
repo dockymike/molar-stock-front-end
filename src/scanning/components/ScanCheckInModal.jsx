@@ -195,7 +195,7 @@ export default function ScanCheckInModal({ open, onClose, user, onSupplyChange }
             <FormControlLabel
               value="transfer"
               control={<Radio />}
-              label="Trasnfer from Unassigned Inventory to an Operatory"
+              label="Transfer from Unassigned Inventory to an Operatory"
             />
           </RadioGroup>
 

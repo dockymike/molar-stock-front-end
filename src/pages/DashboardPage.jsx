@@ -1,3 +1,14 @@
+import {
+  Box,
+  Typography,
+  Paper,
+  Tabs,
+  Tab,
+  Button,
+  Tooltip,
+} from '@mui/material'
+
+
 export default function DashboardPage() {
   return (
     <Box

@@ -2,7 +2,7 @@
 import AuthFormWrapper from '../components/Auth/AuthFormWrapper'
 import ForgotPasswordForm from '../components/Auth/ForgotPasswordForm'
 import useCustomSnackbar from '../components/Common/useSnackBar'
-import { requestPasswordReset } from '../services/passwordService' // ✅ Make sure this path matches your project
+import { requestPasswordReset } from '../services/PasswordService' // ✅ Make sure this path matches your project
 
 export default function ForgotPasswordPage() {
   const { showSuccess, showError } = useCustomSnackbar()

@@ -9,7 +9,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 import useCustomSnackbar from '../components/Common/useSnackBar'
-import { resetPassword } from '../services/passwordService'
+import { resetPassword } from '../services/PasswordService'
 import AuthFormWrapper from '../components/Auth/AuthFormWrapper'
 
 export default function ResetPasswordPage() {

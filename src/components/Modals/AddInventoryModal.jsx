@@ -1,4 +1,4 @@
-// AddInventoryModal.jsx – handles only selection of Scan or Manual
+// AddInventoryModal.jsx – handles Scan (USB), Scan (Camera), and Manual Entry
 
 import {
   Dialog,
@@ -12,14 +12,17 @@ import {
 import { useState } from 'react'
 import ManualAdd from './ManualAdd'
 import ScanAdd from './ScanAdd'
+import CameraAdd from './CameraAdd' // ✅ NEW: import CameraAdd
 
 export default function AddInventoryModal({ open, onClose, onInventoryAdded }) {
   const [openManual, setOpenManual] = useState(false)
   const [openScan, setOpenScan] = useState(false)
+  const [openCameraScan, setOpenCameraScan] = useState(false)
 
   const handleCloseAll = () => {
     setOpenManual(false)
     setOpenScan(false)
+    setOpenCameraScan(false)
     onClose()
   }
 
@@ -31,24 +34,34 @@ export default function AddInventoryModal({ open, onClose, onInventoryAdded }) {
           <Stack spacing={2} mt={1}>
             <Typography>Choose how you'd like to add inventory:</Typography>
             <Button
-              variant="outlined"
-              fullWidth
-              onClick={() => {
-                onClose() // Close parent modal first
-                setOpenScan(true)
-              }}
-            >
-              Scan
-            </Button>
-            <Button
               variant="contained"
               fullWidth
               onClick={() => {
-                onClose() // Close parent modal first
+                onClose()
+                setOpenCameraScan(true)
+              }}
+            >
+              Scan w/Phone or Tablet Camera
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                onClose()
+                setOpenScan(true)
+              }}
+            >
+              Scan w/USB Scanner
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                onClose()
                 setOpenManual(true)
               }}
             >
-              Manual
+              Manual Entry
             </Button>
           </Stack>
         </DialogContent>
@@ -57,20 +70,25 @@ export default function AddInventoryModal({ open, onClose, onInventoryAdded }) {
         </DialogActions>
       </Dialog>
 
+      {/* ✅ Existing modals – unchanged */}
       <ManualAdd
         open={openManual}
-        onClose={() => {
-          setOpenManual(false)
-        }}
+        onClose={() => setOpenManual(false)}
         onInventoryAdded={onInventoryAdded}
       />
       <ScanAdd
         open={openScan}
-        onClose={() => {
-          setOpenScan(false)
-        }}
+        onClose={() => setOpenScan(false)}
+        onInventoryAdded={onInventoryAdded}
+      />
+
+      {/* ✅ Replace placeholder with real CameraAdd modal */}
+      <CameraAdd
+        open={openCameraScan}
+        onClose={() => setOpenCameraScan(false)}
         onInventoryAdded={onInventoryAdded}
       />
     </>
   )
 }
+

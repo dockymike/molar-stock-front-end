@@ -1,5 +1,5 @@
 // src/components/Scanning/ConsumeModal.jsx
-// ConsumeModal.jsx – handles only selection of Scan or Manual consumption
+// ConsumeModal.jsx – handles Scan (USB), Scan (Camera), and Manual Entry for consumption
 
 import {
   Dialog,
@@ -13,14 +13,17 @@ import {
 import { useState } from 'react'
 import ManualConsume from './ManualConsume'
 import ScanConsume from './ScanConsume'
+import CameraConsume from './CameraConsume' // ✅ NEW: import CameraConsume
 
 export default function ConsumeModal({ open, onClose, onInventoryConsumed }) {
   const [openManual, setOpenManual] = useState(false)
   const [openScan, setOpenScan] = useState(false)
+  const [openCameraScan, setOpenCameraScan] = useState(false)
 
   const handleCloseAll = () => {
     setOpenManual(false)
     setOpenScan(false)
+    setOpenCameraScan(false)
     onClose()
   }
 
@@ -32,24 +35,34 @@ export default function ConsumeModal({ open, onClose, onInventoryConsumed }) {
           <Stack spacing={2} mt={1}>
             <Typography>Choose how you'd like to consume inventory:</Typography>
             <Button
-              variant="outlined"
-              fullWidth
-              onClick={() => {
-                onClose() // Close parent modal first
-                setOpenScan(true)
-              }}
-            >
-              Scan
-            </Button>
-            <Button
               variant="contained"
               fullWidth
               onClick={() => {
-                onClose() // Close parent modal first
+                onClose()
+                setOpenCameraScan(true)
+              }}
+            >
+              Scan w/Phone or Tablet Camera
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                onClose()
+                setOpenScan(true)
+              }}
+            >
+              Scan w/USB Scanner
+            </Button>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                onClose()
                 setOpenManual(true)
               }}
             >
-              Manual
+              Manual Entry
             </Button>
           </Stack>
         </DialogContent>
@@ -58,6 +71,7 @@ export default function ConsumeModal({ open, onClose, onInventoryConsumed }) {
         </DialogActions>
       </Dialog>
 
+      {/* ✅ Existing modals – unchanged */}
       <ManualConsume
         open={openManual}
         onClose={() => setOpenManual(false)}
@@ -66,6 +80,13 @@ export default function ConsumeModal({ open, onClose, onInventoryConsumed }) {
       <ScanConsume
         open={openScan}
         onClose={() => setOpenScan(false)}
+        onInventoryConsumed={onInventoryConsumed}
+      />
+
+      {/* ✅ Replace placeholder with real CameraConsume modal */}
+      <CameraConsume
+        open={openCameraScan}
+        onClose={() => setOpenCameraScan(false)}
         onInventoryConsumed={onInventoryConsumed}
       />
     </>

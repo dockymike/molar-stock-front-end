@@ -3,6 +3,10 @@
     {
       "source": "/api/(.*)",
       "destination": "https://dental-inventory-control.herokuapp.com/api/$1"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
     }
   ]
 }

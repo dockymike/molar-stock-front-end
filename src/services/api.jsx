@@ -7,7 +7,7 @@ const CACHE_DURATION = 5 * 60 * 1000 // 5 minutes
 
 // Create an Axios instance
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api',
+  baseURL: import.meta.env.VITE_API_URL || 'https://dental-inventory-control-dc6cc33ddb7b.herokuapp.com/',
   timeout: 10000, // 10 second timeout
   withCredentials: true, // Include cookies in requests
 })

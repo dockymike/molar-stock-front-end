@@ -19,7 +19,7 @@ export default function LoginPage() {
 
     try {
       const { user } = await login({ email, password })
-      
+
       // Use UserContext to store the login state
       loginContext(user)
 
@@ -42,6 +42,9 @@ export default function LoginPage() {
 
   return (
     <AuthFormWrapper title="Login to Molar Stock">
+      <div style={{ marginBottom: '1rem', color: '#d32f2f', fontSize: '0.9rem' }}>
+        ⚠️ You may experience login issues on Apple devices. If so, please try logging in from a non-Apple device.
+      </div>
       <LoginForm onSubmit={handleLogin} />
     </AuthFormWrapper>
   )

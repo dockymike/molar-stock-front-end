@@ -42,7 +42,7 @@ export default function ConsumeModal({ open, onClose, onInventoryConsumed }) {
                 setOpenCameraScan(true)
               }}
             >
-              Scan w/Phone or Tablet Camera
+              *UNSTABLE* Scan w/Phone or Tablet Camera
             </Button>
             <Button
               variant="outlined"

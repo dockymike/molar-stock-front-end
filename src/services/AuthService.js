@@ -4,7 +4,7 @@ import api from './api.jsx'
 // ✅ LOGIN: sends credentials and stores token via httpOnly cookie
 export async function login({ email, password }) {
   const res = await api.post(
-    '/users/login',
+    '/login',
     { email, password },
     { withCredentials: true } // 🔥 Ensure cookie is accepted and stored
   )
@@ -14,6 +14,6 @@ export async function login({ email, password }) {
 
 // ✅ REGISTER: unchanged, no cookie needed
 export async function register({ email, password, practice_name }) {
-  const res = await api.post('/users/register', { email, password, practice_name })
+  const res = await api.post('/register', { email, password, practice_name })
   return res.data
 }

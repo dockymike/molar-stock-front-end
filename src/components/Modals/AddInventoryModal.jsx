@@ -41,7 +41,7 @@ export default function AddInventoryModal({ open, onClose, onInventoryAdded }) {
                 setOpenCameraScan(true)
               }}
             >
-              *UNSTABLE* Scan w/Phone or Tablet Camera
+              *UNSTABLE - Development in Progress* Scan w/Phone or Tablet Camera
             </Button>
             <Button
               variant="outlined"

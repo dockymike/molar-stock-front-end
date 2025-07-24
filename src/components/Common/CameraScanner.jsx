@@ -44,45 +44,79 @@ export default function BarcodeScanner({
     return () => stopCamera()
   }, [scannerActive])
 
-  const startCamera = async () => {
-    try {
-      codeReaderRef.current = new BrowserMultiFormatReader()
-      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
-      const selectedDeviceId = videoInputDevices[0]?.deviceId
+const startCamera = async () => {
+  try {
+    codeReaderRef.current = new BrowserMultiFormatReader()
+    const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
+    const selectedDeviceId = videoInputDevices[0]?.deviceId
 
-      const result = await codeReaderRef.current.decodeOnceFromVideoDevice(
-        selectedDeviceId,
-        videoRef.current
-      )
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { deviceId: selectedDeviceId },
+    })
 
-      if (result?.text) {
-        setDetectedBarcode(result.text)
-        setIsPausedAfterDetection(true)
-        stopCamera()
-      }
-    } catch (err) {
-      console.error('Camera init error:', err)
-    } finally {
-      setIsCameraReady(true)
+    streamRef.current = stream
+
+    if (videoRef.current && videoRef.current.srcObject !== stream) {
+      videoRef.current.srcObject = stream
+      // Do NOT call .play() — ZXing will handle it internally
     }
-  }
 
-  const stopCamera = () => {
-    try {
-      codeReaderRef.current?.reset()
-      setIsCameraReady(false)
-    } catch (err) {
-      console.error('Failed to stop camera:', err)
+    const result = await codeReaderRef.current.decodeOnceFromStream(
+      stream,
+      videoRef.current
+    )
+
+    if (result?.text) {
+      setDetectedBarcode(result.text)
+      setIsPausedAfterDetection(true)
+      stopCamera()
     }
+  } catch (err) {
+    console.error('Camera init error:', err)
+  } finally {
+    setIsCameraReady(true)
   }
+}
 
-  const handleTapToRestart = () => {
-    if (!scannerActive || isCameraReady) return
-    setDetectedBarcode('')
-    setIsPausedAfterDetection(false)
-    setIsCameraReady(false)
+
+
+
+const stopCamera = () => {
+  try {
+    // Safely close the decoder
+    if (codeReaderRef.current && typeof codeReaderRef.current.close === 'function') {
+      codeReaderRef.current.close()
+    }
+
+    // Safely stop all tracks
+    const tracks = videoRef.current?.srcObject?.getTracks()
+    if (tracks) {
+      tracks.forEach((track) => track.stop())
+    }
+
+    // Only set srcObject to null if videoRef is not null
+    if (videoRef.current && videoRef.current.srcObject) {
+      videoRef.current.srcObject = null
+    }
+  } catch (err) {
+    console.error('Failed to stop camera:', err)
+  }
+}
+
+
+const handleTapToRestart = () => {
+  if (!scannerActive) return
+
+  setDetectedBarcode('')
+  setIsPausedAfterDetection(false)
+  setIsCameraReady(false)
+
+  // Restart camera after small delay to let UI update
+  setTimeout(() => {
     startCamera()
-  }
+  }, 100)
+}
+
 
   const handleCaptureClick = async () => {
     if (!detectedBarcode) return
@@ -91,7 +125,6 @@ export default function BarcodeScanner({
       const updated = [...scannedItems, { inventory_id: item.id, quantity, item }]
       setScannedItems(updated)
       onChange?.({ item, quantity })
-      // Let user add +1 multiple times
     } catch (err) {
       console.error('Barcode lookup failed:', err)
       if (mode === 'consume') {
@@ -159,26 +192,29 @@ export default function BarcodeScanner({
             <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
             {isPausedAfterDetection && (
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  bgcolor: 'rgba(0, 0, 0, 0.5)',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  color: '#fff',
-                  fontSize: 18,
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  px: 2,
-                }}
-              >
-                Tap to scan next barcode
-              </Box>
+<Box
+  onClick={handleTapToRestart}
+  sx={{
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+    bgcolor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    px: 2,
+    cursor: 'pointer', // <-- important
+  }}
+>
+  Tap to scan next barcode
+</Box>
+
             )}
           </Box>
 

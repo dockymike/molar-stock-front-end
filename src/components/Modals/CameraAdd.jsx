@@ -195,7 +195,7 @@ export default function CameraAdd({ open, onClose, onInventoryAdded }) {
 
 {scannerActive && (
   <Typography variant="body2" align="center" sx={{ mt: 1 }} color="textSecondary">
-    Use the camera to place the barcode in frame and wait for the barcode to be read."
+    Hold steady and wait a few seconds. Use the camera to place the barcode in frame and wait for the barcode to be read.
   </Typography>
 )}
         </Stack>

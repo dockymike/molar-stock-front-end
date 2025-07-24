@@ -126,7 +126,8 @@ export default function CameraConsume({ open, onClose, onInventoryConsumed }) {
 
   const scannerActive = Boolean(open && location)
 
-  return (
+return (
+  <>
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Consume Inventory w/ Camera</DialogTitle>
 
@@ -181,9 +182,20 @@ export default function CameraConsume({ open, onClose, onInventoryConsumed }) {
           />
 
           {scannerActive && (
-            <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
-              <CircularProgress size={20} />
-              <Typography variant="body2">Camera active…</Typography>
+            <Stack direction="column" justifyContent="center" alignItems="center" spacing={1}>
+              <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
+                <CircularProgress size={20} />
+                <Typography variant="body2">Camera active…</Typography>
+              </Stack>
+
+              <Typography
+                variant="body2"
+                align="center"
+                sx={{ mt: 1 }}
+                color="textSecondary"
+              >
+                Hold steady and wait a few seconds. Use the camera to place the barcode in frame and wait for the barcode to be read.
+              </Typography>
             </Stack>
           )}
         </Stack>
@@ -193,5 +205,7 @@ export default function CameraConsume({ open, onClose, onInventoryConsumed }) {
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
     </Dialog>
-  )
+  </>
+)
+
 }

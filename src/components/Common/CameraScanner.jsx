@@ -48,24 +48,25 @@ const startCamera = async () => {
   try {
     codeReaderRef.current = new BrowserMultiFormatReader()
     const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
+
     const selectedDeviceId = videoInputDevices.find(device =>
-    device.label.toLowerCase().includes('front') || device.label.toLowerCase().includes('user')
+      device.label.toLowerCase().includes('back') ||
+      device.label.toLowerCase().includes('rear') ||
+      device.label.toLowerCase().includes('environment')
     )?.deviceId || videoInputDevices[0]?.deviceId
 
-
-const stream = await navigator.mediaDevices.getUserMedia({
-  video: {
-    deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
-    facingMode: 'user', // request front-facing camera
-  },
-})
-
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+        facingMode: { exact: 'environment' }, // 💡 rear camera
+      },
+    })
 
     streamRef.current = stream
 
     if (videoRef.current && videoRef.current.srcObject !== stream) {
       videoRef.current.srcObject = stream
-      // Do NOT call .play() — ZXing will handle it internally
+      // Do NOT call .play() — ZXing handles it internally
     }
 
     const result = await codeReaderRef.current.decodeOnceFromStream(
@@ -84,6 +85,7 @@ const stream = await navigator.mediaDevices.getUserMedia({
     setIsCameraReady(true)
   }
 }
+
 
 
 

@@ -192,12 +192,11 @@ export default function CameraAdd({ open, onClose, onInventoryAdded }) {
             onNewItemAdded={handleNewItemAdded}
           />
 
-          {scannerActive && (
-            <Stack direction="row" justifyContent="center" alignItems="center" spacing={1}>
-              <CircularProgress size={20} />
-              <Typography variant="body2">Camera active…</Typography>
-            </Stack>
-          )}
+{scannerActive && (
+  <Typography variant="body2" align="center" sx={{ mt: 1 }} color="textSecondary">
+    Use the camera to place the barcode in frame and wait for the barcode to be read."
+  </Typography>
+)}
         </Stack>
       </DialogContent>
 

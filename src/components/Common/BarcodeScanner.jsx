@@ -1,5 +1,3 @@
-// BarcodeScanner.jsx – Barcode scanning component with keyboard input handling
-
 import {
   Stack,
   Typography,
@@ -9,94 +7,104 @@ import {
   DialogContent,
   DialogActions,
   Button,
+  Box,
 } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
+import Quagga from 'quagga'
 import { lookupBarcode, addItemByBarcode } from '../../services/BarcodeService'
 import { useUser } from '../../context/UserContext'
 
 export default function BarcodeScanner({
   active,
   locationId,
-  scanMode,
   quantity = 1,
-  mode = 'add', // ✅ NEW: 'add' (default) or 'consume'
+  mode = 'add', // 'add' or 'consume'
   onChange,
-  onNewItemAdded, // optional callback for new items
+  onNewItemAdded,
 }) {
-  const [buffer, setBuffer] = useState('')
+  const [scannerActive, setScannerActive] = useState(active)
+  const [detectedBarcode, setDetectedBarcode] = useState('')
   const [notFoundBarcode, setNotFoundBarcode] = useState('')
   const [newItemName, setNewItemName] = useState('')
   const [scannedItems, setScannedItems] = useState([])
+  const [isCameraReady, setIsCameraReady] = useState(false)
 
-  const timeoutRef = useRef(null)
+  const videoRef = useRef(null)
+  const lastScanned = useRef(null)
   const { isAuthenticated } = useUser()
-  const [scannerActive, setScannerActive] = useState(active)
 
   useEffect(() => setScannerActive(active), [active])
 
-  /* ───────── key listener ───────── */
   useEffect(() => {
-    if (!scannerActive) return
+    if (!scannerActive || !videoRef.current) return
 
-    const handleKeyPress = (e) => {
-      const key = e.key
-      if (key === 'Enter') {
-        const trimmed = buffer.trim()
-        if (trimmed.length) {
-          if (timeoutRef.current) clearTimeout(timeoutRef.current)
-          processBarcode(trimmed)
-          setBuffer('')
-        }
+    Quagga.init({
+      inputStream: {
+        type: 'LiveStream',
+        target: videoRef.current,
+        constraints: { facingMode: 'environment' },
+      },
+      decoder: {
+        readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'],
+      },
+    }, (err) => {
+      if (err) {
+        console.error('Quagga init error:', err)
         return
       }
-      if (key.length !== 1) return
+      Quagga.start()
+      setIsCameraReady(true)
+    })
 
-      setBuffer((prev) => {
-        const next = prev + key
-        if (timeoutRef.current) clearTimeout(timeoutRef.current)
-        timeoutRef.current = setTimeout(() => {
-          const trimmed = next.trim()
-          if (trimmed.length) processBarcode(trimmed)
-          setBuffer('')
-        }, 300)
-        return next
-      })
+    Quagga.onDetected(handleDetected)
+
+    return () => {
+      Quagga.offDetected(handleDetected)
+      Quagga.stop()
     }
+  }, [scannerActive])
 
-    window.addEventListener('keydown', handleKeyPress)
-    return () => window.removeEventListener('keydown', handleKeyPress)
-  }, [scannerActive, buffer])
+  const handleDetected = (result) => {
+    const code = result?.codeResult?.code
+    if (!code || code === lastScanned.current) return
 
-  /* ───────── process scanned barcode ───────── */
-  const processBarcode = async (barcode) => {
-    if (!barcode) return
+    lastScanned.current = code
+    setDetectedBarcode(code)
+  }
+
+  const handleCaptureClick = async () => {
+    if (!detectedBarcode) return
+
     try {
-      const item = await lookupBarcode(barcode)
-
+      const item = await lookupBarcode(detectedBarcode)
       const updated = [...scannedItems, { inventory_id: item.id, quantity, item }]
       setScannedItems(updated)
-      onChange?.({ item, quantity }) // ✅ Found item
+      onChange?.({ item, quantity })
+      restartScanner()
     } catch (err) {
       console.error('Barcode lookup failed:', err)
 
       if (mode === 'consume') {
-        // ✅ Just send an error to parent, don’t show dialog
         onChange?.({
           error: true,
-          barcode,
-          message: `Item not found in inventory: ${barcode}`,
+          barcode: detectedBarcode,
+          message: `Item not found in inventory: ${detectedBarcode}`,
         })
-        return
+        restartScanner()
+      } else {
+        setNotFoundBarcode(detectedBarcode)
+        setNewItemName('')
+        setScannerActive(false)
       }
-
-      // Default behavior: show add-item dialog
-      setNotFoundBarcode(barcode)
-      setNewItemName('')
-      setScannerActive(false)
     }
   }
 
-  /* ───────── add new item flow ───────── */
+  const restartScanner = () => {
+    setDetectedBarcode('')
+    lastScanned.current = null
+    Quagga.start()
+  }
+
   const handleAddNewItem = async () => {
     if (!newItemName.trim()) return
     try {
@@ -106,7 +114,6 @@ export default function BarcodeScanner({
         quantity,
         location: locationId,
       })
-
       setScannedItems((prev) => [...prev, { inventory_id: result.id, quantity, item: result }])
       onChange?.({ item: result, quantity })
       onNewItemAdded?.(result, quantity)
@@ -117,38 +124,75 @@ export default function BarcodeScanner({
     setNotFoundBarcode('')
     setNewItemName('')
     setScannerActive(true)
+    restartScanner()
   }
 
   const handleCancelNotFound = () => {
     setNotFoundBarcode('')
     setNewItemName('')
     setScannerActive(true)
+    restartScanner()
   }
 
-  /* ───────── render ───────── */
   return (
-    <Dialog open={!!notFoundBarcode && mode === 'add'} onClose={handleCancelNotFound} maxWidth="xs" fullWidth>
-      <DialogTitle>Barcode Not Found</DialogTitle>
-      <DialogContent>
-        <Typography gutterBottom>
-          Barcode <strong>{notFoundBarcode}</strong> was not found. Enter a name to add this new item:
-        </Typography>
-        <Stack spacing={2} mt={1}>
-          <TextField
-            label="Item Name"
-            value={newItemName}
-            onChange={(e) => setNewItemName(e.target.value)}
-            fullWidth
-            autoFocus
-          />
+    <>
+      {scannerActive && (
+        <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+          {/* Camera Box */}
+          <Box
+            sx={{
+              width: 320,
+              height: 240,
+              borderRadius: 2,
+              overflow: 'hidden',
+              backgroundColor: '#000',
+              border: '1px solid #ccc',
+            }}
+          >
+            <div ref={videoRef} style={{ width: '100%', height: '100%' }} />
+          </Box>
+
+          {/* Status + Capture */}
+          <Typography variant="body2" color="textSecondary">
+            {detectedBarcode
+              ? `Detected: ${detectedBarcode}`
+              : isCameraReady
+              ? 'Ready to scan...'
+              : 'Initializing camera...'}
+          </Typography>
+
+          <Button
+            variant="contained"
+            onClick={handleCaptureClick}
+            disabled={!detectedBarcode}
+          >
+            📸 Capture Scan
+          </Button>
         </Stack>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={handleCancelNotFound}>Cancel</Button>
-        <Button onClick={handleAddNewItem} variant="contained">
-          Add Item
-        </Button>
-      </DialogActions>
-    </Dialog>
+      )}
+
+      {/* Not Found Dialog */}
+      <Dialog open={!!notFoundBarcode && mode === 'add'} onClose={handleCancelNotFound} maxWidth="xs" fullWidth>
+        <DialogTitle>Barcode Not Found</DialogTitle>
+        <DialogContent>
+          <Typography gutterBottom>
+            Barcode <strong>{notFoundBarcode}</strong> was not found. Enter a name to add this new item:
+          </Typography>
+          <Stack spacing={2} mt={1}>
+            <TextField
+              label="Item Name"
+              value={newItemName}
+              onChange={(e) => setNewItemName(e.target.value)}
+              fullWidth
+              autoFocus
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCancelNotFound}>Cancel</Button>
+          <Button onClick={handleAddNewItem} variant="contained">Add Item</Button>
+        </DialogActions>
+      </Dialog>
+    </>
   )
 }

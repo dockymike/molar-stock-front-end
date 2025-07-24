@@ -10,7 +10,7 @@ import {
   Box,
 } from '@mui/material'
 import { useEffect, useRef, useState } from 'react'
-import Quagga from 'quagga'
+import { BrowserMultiFormatReader } from '@zxing/browser'
 import { lookupBarcode, addItemByBarcode } from '../../services/BarcodeService'
 import { useUser } from '../../context/UserContext'
 
@@ -26,106 +26,88 @@ export default function BarcodeScanner({
   const [detectedBarcode, setDetectedBarcode] = useState('')
   const [notFoundBarcode, setNotFoundBarcode] = useState('')
   const [newItemName, setNewItemName] = useState('')
-  const [scannedItems, setScannedItems] = useState([])
-  const [isCameraReady, setIsCameraReady] = useState(false)
   const [isPausedAfterDetection, setIsPausedAfterDetection] = useState(false)
+  const [isCameraReady, setIsCameraReady] = useState(false)
+  const [scannedItems, setScannedItems] = useState([])
 
   const videoRef = useRef(null)
-  const lastScanned = useRef(null)
+  const codeReaderRef = useRef(null)
+  const streamRef = useRef(null)
   const { isAuthenticated } = useUser()
 
   useEffect(() => setScannerActive(active), [active])
 
   useEffect(() => {
-    if (!scannerActive || !videoRef.current) return
+    if (!scannerActive) return
+    startCamera()
 
-    initQuagga()
-
-    return () => {
-      Quagga.offDetected(handleDetected)
-      Quagga.stop()
-    }
+    return () => stopCamera()
   }, [scannerActive])
 
-  const initQuagga = () => {
-    Quagga.init(
-      {
-        inputStream: {
-          type: 'LiveStream',
-          target: videoRef.current,
-          constraints: { facingMode: 'environment' },
-        },
-        decoder: {
-          readers: ['code_128_reader', 'ean_reader', 'upc_reader', 'code_39_reader'],
-        },
-      },
-      (err) => {
-        if (err) {
-          console.error('Quagga init error:', err)
-          return
-        }
-        Quagga.start()
-        setIsCameraReady(true)
+  const startCamera = async () => {
+    try {
+      codeReaderRef.current = new BrowserMultiFormatReader()
+      const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
+      const selectedDeviceId = videoInputDevices[0]?.deviceId
+
+      const result = await codeReaderRef.current.decodeOnceFromVideoDevice(
+        selectedDeviceId,
+        videoRef.current
+      )
+
+      if (result?.text) {
+        setDetectedBarcode(result.text)
+        setIsPausedAfterDetection(true)
+        stopCamera()
       }
-    )
-    Quagga.onDetected(handleDetected)
-  }
-
-  const handleDetected = (result) => {
-    const code = result?.codeResult?.code
-    if (!code || code === lastScanned.current) return
-
-    lastScanned.current = code
-    setDetectedBarcode(code)
-    setIsPausedAfterDetection(true)
-    Quagga.stop()
-    setIsCameraReady(false)
-  }
-
-const handleCaptureClick = async () => {
-  if (!detectedBarcode) return
-
-  try {
-    const item = await lookupBarcode(detectedBarcode)
-    const updated = [...scannedItems, { inventory_id: item.id, quantity, item }]
-    setScannedItems(updated)
-    onChange?.({ item, quantity })
-
-    // Don't restart scanner — allow user to click Add +1 repeatedly
-    setDetectedBarcode(detectedBarcode)
-  } catch (err) {
-    console.error('Barcode lookup failed:', err)
-
-    if (mode === 'consume') {
-      onChange?.({
-        error: true,
-        barcode: detectedBarcode,
-        message: `Item not found in inventory: ${detectedBarcode}`,
-      })
-      restartScanner()
-    } else {
-      setNotFoundBarcode(detectedBarcode)
-      setNewItemName('')
-      setScannerActive(false)
+    } catch (err) {
+      console.error('Camera init error:', err)
+    } finally {
+      setIsCameraReady(true)
     }
   }
-}
 
-
-  const restartScanner = () => {
-    setDetectedBarcode('')
-    lastScanned.current = null
-    setIsPausedAfterDetection(false)
-    Quagga.stop()
-    initQuagga()
+  const stopCamera = () => {
+    try {
+      codeReaderRef.current?.reset()
+      setIsCameraReady(false)
+    } catch (err) {
+      console.error('Failed to stop camera:', err)
+    }
   }
 
-const handleTapToRestart = () => {
-  if (!scannerActive || isCameraReady) return // don't restart if already running
-  console.log('🔄 Tap to restart camera stream')
-  restartScanner()
-}
+  const handleTapToRestart = () => {
+    if (!scannerActive || isCameraReady) return
+    setDetectedBarcode('')
+    setIsPausedAfterDetection(false)
+    setIsCameraReady(false)
+    startCamera()
+  }
 
+  const handleCaptureClick = async () => {
+    if (!detectedBarcode) return
+    try {
+      const item = await lookupBarcode(detectedBarcode)
+      const updated = [...scannedItems, { inventory_id: item.id, quantity, item }]
+      setScannedItems(updated)
+      onChange?.({ item, quantity })
+      // Let user add +1 multiple times
+    } catch (err) {
+      console.error('Barcode lookup failed:', err)
+      if (mode === 'consume') {
+        onChange?.({
+          error: true,
+          barcode: detectedBarcode,
+          message: `Item not found in inventory: ${detectedBarcode}`,
+        })
+        handleTapToRestart()
+      } else {
+        setNotFoundBarcode(detectedBarcode)
+        setNewItemName('')
+        setScannerActive(false)
+      }
+    }
+  }
 
   const handleAddNewItem = async () => {
     if (!newItemName.trim()) return
@@ -146,24 +128,22 @@ const handleTapToRestart = () => {
     setNotFoundBarcode('')
     setNewItemName('')
     setScannerActive(true)
-    restartScanner()
+    handleTapToRestart()
   }
 
   const handleCancelNotFound = () => {
     setNotFoundBarcode('')
     setNewItemName('')
     setScannerActive(true)
-    restartScanner()
+    handleTapToRestart()
   }
 
   return (
     <>
       {scannerActive && (
         <Stack spacing={2} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
-          {/* Camera Box */}
           <Box
             onClick={handleTapToRestart}
-
             sx={{
               width: '100%',
               maxWidth: 360,
@@ -176,9 +156,8 @@ const handleTapToRestart = () => {
               cursor: isPausedAfterDetection ? 'pointer' : 'default',
             }}
           >
-            <div ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
 
-            {/* Freeze Overlay */}
             {isPausedAfterDetection && (
               <Box
                 sx={{
@@ -213,20 +192,17 @@ const handleTapToRestart = () => {
               : '🔄 Initializing camera…'}
           </Typography>
 
-          {isPausedAfterDetection && (
-<Button
-  variant="contained"
-  onClick={handleCaptureClick}
-  sx={{ mt: 1 }}
-  disabled={!detectedBarcode}
->
-  ➕ Add +1
-</Button>
-          )}
+          <Button
+            variant="contained"
+            onClick={handleCaptureClick}
+            sx={{ mt: 1 }}
+            disabled={!detectedBarcode}
+          >
+            ➕ Add +1
+          </Button>
         </Stack>
       )}
 
-      {/* Not Found Dialog */}
       <Dialog open={!!notFoundBarcode && mode === 'add'} onClose={handleCancelNotFound} maxWidth="xs" fullWidth>
         <DialogTitle>Barcode Not Found</DialogTitle>
         <DialogContent>

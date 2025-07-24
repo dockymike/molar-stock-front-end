@@ -107,57 +107,113 @@ export default function Sidebar() {
     navigate('/login')
   }
 
-  return (
-    <>
-      <Drawer
-        variant="permanent"
-        sx={{
+return (
+  <>
+    {/* Sidebar Drawer */}
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: open ? drawerWidth : 60,
+        flexShrink: 0,
+        [`& .MuiDrawer-paper`]: {
           width: open ? drawerWidth : 60,
-          flexShrink: 0,
-          [`& .MuiDrawer-paper`]: {
-            width: open ? drawerWidth : 60,
-            transition: 'width 0.2s',
-            boxSizing: 'border-box',
-            p: 2,
-            overflowX: 'hidden',
-          },
-        }}
-      >
-        <Box>
-          <Box display="flex" justifyContent={open ? 'space-between' : 'center'} alignItems="center">
-            {open && (
-              <Typography variant="h6" fontWeight="bold" gutterBottom>
-                🟧 Molar Stock
-              </Typography>
-            )}
-            <IconButton onClick={toggleSidebar}>
-              <MenuIcon />
-            </IconButton>
-          </Box>
+          transition: 'width 0.2s',
+          boxSizing: 'border-box',
+          p: 2,
+          overflowX: 'hidden',
+          position: 'relative',
+        },
+      }}
+    >
+      <Box>
+        {open && (
+          <Typography variant="h6" fontWeight="bold" gutterBottom>
+            🟧 Molar Stock
+          </Typography>
+        )}
 
-          <Divider sx={{ mb: 2 }} />
-          {renderList(menuItems)}
-          <Divider sx={{ my: 2 }} />
-          {renderList(secondaryItems)}
-          <Divider sx={{ my: 2 }} />
+        <Divider sx={{ mb: 2 }} />
+        {renderList(menuItems)}
+        <Divider sx={{ my: 2 }} />
+        {renderList(secondaryItems)}
+        <Divider sx={{ my: 2 }} />
 
-          <ListItemButton
-            onClick={handleLogout}
-            sx={{
-              color: 'error.main',
-              mt: 1,
-              '&:hover': {
-                backgroundColor: mode === 'light' ? '#FFEBEE' : '#4B0000',
-              },
-            }}
-          >
-            <ListItemIcon sx={{ color: 'inherit' }}>
-              <LogoutIcon />
-            </ListItemIcon>
-            {open && <ListItemText primary="Logout" />}
-          </ListItemButton>
-        </Box>
-      </Drawer>
-    </>
-  )
+        <ListItemButton
+          onClick={handleLogout}
+          sx={{
+            color: 'error.main',
+            mt: 1,
+            '&:hover': {
+              backgroundColor: mode === 'light' ? '#FFEBEE' : '#4B0000',
+            },
+          }}
+        >
+          <ListItemIcon sx={{ color: 'inherit' }}>
+            <LogoutIcon />
+          </ListItemIcon>
+          {open && <ListItemText primary="Logout" />}
+        </ListItemButton>
+      </Box>
+
+      {/* Collapse Button (Positioned outside) */}
+<Box
+  onClick={toggleSidebar}
+  sx={{
+    position: 'fixed',
+    top: '50%',
+    left: open ? `${drawerWidth - 1}px` : '60px',
+    transform: 'translateY(-50%)',
+    background: 'linear-gradient(to right, #FFF9C4, #FFEB3B)', // yellow tone
+    color: '#333',
+    border: '1px solid #FDD835',
+    borderRadius: '0 4px 4px 0',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+    zIndex: 1301,
+    cursor: 'pointer',
+    px: 0.5,
+    py: 0.25,
+    fontSize: 12,
+    userSelect: 'none',
+    whiteSpace: 'nowrap',
+    transition: 'left 0.2s ease-in-out, background 0.2s',
+    minWidth: '18px',
+    minHeight: '60px',
+    animation: 'pulse 2s infinite',
+    '&:hover': {
+      background: '#FFF176', // hover yellow
+    },
+    '@keyframes pulse': {
+      '0%': {
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+      },
+      '50%': {
+        boxShadow: '0 4px 10px rgba(0, 0, 0, 0.35)',
+      },
+      '100%': {
+        boxShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+      },
+    },
+  }}
+>
+  <Typography
+    sx={{
+      writingMode: 'vertical-rl',
+      transform: 'rotate(180deg)',
+      fontSize: 12,
+      textAlign: 'center',
+      lineHeight: 1.1,
+    }}
+  >
+    {open ? 'Collapse Sidebar' : 'Expand Sidebar'}
+  </Typography>
+</Box>
+
+
+
+
+
+    </Drawer>
+  </>
+)
+
 }

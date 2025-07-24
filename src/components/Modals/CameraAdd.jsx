@@ -188,6 +188,7 @@ export default function CameraAdd({ open, onClose, onInventoryAdded }) {
             locationId={Number(location?.id)}
             scanMode="fast"
             quantity={1}
+            mode="add"
             onChange={handleScan}
             onNewItemAdded={handleNewItemAdded}
           />

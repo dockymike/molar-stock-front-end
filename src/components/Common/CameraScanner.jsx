@@ -36,6 +36,8 @@ export default function BarcodeScanner({
   const { isAuthenticated } = useUser()
 
   useEffect(() => setScannerActive(active), [active])
+  const lastUsedCameraId = { current: null }
+
 
   useEffect(() => {
     if (!scannerActive) return
@@ -49,16 +51,21 @@ const startCamera = async () => {
     codeReaderRef.current = new BrowserMultiFormatReader()
     const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
 
-    const selectedDeviceId = videoInputDevices.find(device =>
-      device.label.toLowerCase().includes('back') ||
-      device.label.toLowerCase().includes('rear') ||
-      device.label.toLowerCase().includes('environment')
-    )?.deviceId || videoInputDevices[0]?.deviceId
+    let selectedDeviceId = lastUsedCameraId.current
+
+    if (!selectedDeviceId) {
+      selectedDeviceId = videoInputDevices.find((device) =>
+        device.label.toLowerCase().includes('back') ||
+        device.label.toLowerCase().includes('rear') ||
+        device.label.toLowerCase().includes('environment')
+      )?.deviceId || videoInputDevices[0]?.deviceId
+
+      lastUsedCameraId.current = selectedDeviceId // ✅ store for reuse
+    }
 
     const stream = await navigator.mediaDevices.getUserMedia({
       video: {
         deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
-        facingMode: { exact: 'environment' }, // 💡 rear camera
       },
     })
 
@@ -66,7 +73,6 @@ const startCamera = async () => {
 
     if (videoRef.current && videoRef.current.srcObject !== stream) {
       videoRef.current.srcObject = stream
-      // Do NOT call .play() — ZXing handles it internally
     }
 
     const result = await codeReaderRef.current.decodeOnceFromStream(
@@ -85,6 +91,7 @@ const startCamera = async () => {
     setIsCameraReady(true)
   }
 }
+
 
 
 
@@ -237,14 +244,17 @@ const handleTapToRestart = () => {
               : '🔄 Initializing camera…'}
           </Typography>
 
-          <Button
-            variant="contained"
-            onClick={handleCaptureClick}
-            sx={{ mt: 1 }}
-            disabled={!detectedBarcode}
-          >
-            ➕ Add +1
-          </Button>
+{detectedBarcode && (
+  <Button
+    variant="contained"
+    color={mode === 'add' ? 'success' : 'error'}
+    onClick={handleCaptureClick}
+    sx={{ mt: 1 }}
+  >
+    {mode === 'add' ? '➕ Add +1' : '➖ Consume -1'}
+  </Button>
+)}
+
         </Stack>
       )}
 

@@ -51,23 +51,28 @@ const startCamera = async () => {
     codeReaderRef.current = new BrowserMultiFormatReader()
     const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
 
-    let selectedDeviceId = lastUsedCameraId.current
-
-    if (!selectedDeviceId) {
-      selectedDeviceId = videoInputDevices.find((device) =>
+    // ✅ Prefer rear-facing camera if available
+    let selectedDeviceId =
+      videoInputDevices.find((device) =>
         device.label.toLowerCase().includes('back') ||
         device.label.toLowerCase().includes('rear') ||
         device.label.toLowerCase().includes('environment')
       )?.deviceId || videoInputDevices[0]?.deviceId
 
-      lastUsedCameraId.current = selectedDeviceId // ✅ store for reuse
-    }
+    // 💾 Store for reuse
+    lastUsedCameraId.current = selectedDeviceId
 
-    const stream = await navigator.mediaDevices.getUserMedia({
+    // ✅ Robust getUserMedia call
+    const constraints = {
       video: {
         deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+        facingMode: 'environment', // Fallback hint
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
       },
-    })
+    }
+
+    const stream = await navigator.mediaDevices.getUserMedia(constraints)
 
     streamRef.current = stream
 
@@ -91,6 +96,7 @@ const startCamera = async () => {
     setIsCameraReady(true)
   }
 }
+
 
 
 

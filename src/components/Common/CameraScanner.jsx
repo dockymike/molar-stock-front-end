@@ -48,11 +48,18 @@ const startCamera = async () => {
   try {
     codeReaderRef.current = new BrowserMultiFormatReader()
     const videoInputDevices = await BrowserMultiFormatReader.listVideoInputDevices()
-    const selectedDeviceId = videoInputDevices[0]?.deviceId
+    const selectedDeviceId = videoInputDevices.find(device =>
+    device.label.toLowerCase().includes('front') || device.label.toLowerCase().includes('user')
+    )?.deviceId || videoInputDevices[0]?.deviceId
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { deviceId: selectedDeviceId },
-    })
+
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: {
+    deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined,
+    facingMode: 'user', // request front-facing camera
+  },
+})
+
 
     streamRef.current = stream
 
